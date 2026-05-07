@@ -3,14 +3,15 @@
 # Rendered by 10-config.sh via envsubst into /data/turnserver.conf
 #
 # Variables substituted:
-#   ${SERVER_NAME}  — used as realm (TURN realm should match Matrix domain)
-#   ${TURN_SECRET}  — shared secret for time-limited HMAC credentials
+#   ${SERVER_NAME}       — used as realm (TURN realm should match Matrix domain)
+#   ${TURN_SECRET}       — shared secret for time-limited HMAC credentials
+#   ${TURN_TLS_PREFIX}   — set to "" when TLS certs exist, "#" to comment out TLS lines
 # =============================================================================
 
 # --- Network ------------------------------------------------------------------
 # Listen on all interfaces for TURN/STUN traffic.
 listening-port=3478
-tls-listening-port=5349
+${TURN_TLS_PREFIX}tls-listening-port=5349
 
 # Bind to all available interfaces
 listening-ip=0.0.0.0
@@ -74,8 +75,10 @@ total-quota=0
 # Per-user relay quota
 user-quota=0
 
-# --- TLS (optional) -----------------------------------------------------------
-# Uncomment and set paths to your certificates to enable TURN over TLS (port 5349).
-# The certificates must be accessible inside the container.
-# tls-cert=/data/tls/fullchain.pem
-# tls-pkey=/data/tls/privkey.pem
+# --- TURN over TLS (optional) -------------------------------------------------
+# These lines are prefixed with ${TURN_TLS_PREFIX} which is set to "" when
+# fullchain.pem and privkey.pem are present at /data/certs/, or "#" otherwise.
+# Mount your cert directory (containing fullchain.pem + privkey.pem) at /data/certs/
+# to enable TURN-TLS on port 5349. Plain TURN on port 3478 always works.
+${TURN_TLS_PREFIX}cert=/data/certs/fullchain.pem
+${TURN_TLS_PREFIX}pkey=/data/certs/privkey.pem
