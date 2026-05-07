@@ -1,141 +1,141 @@
-# Matrix All-in-One für Unraid
+# Matrix All-in-One for Unraid
 
 [![Build & Push](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml)
 [![Lint](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml)
 [![Image: ghcr.io/junkerderprovinz/matrix](https://img.shields.io/badge/image-ghcr.io%2Fjunkerderprovinz%2Fmatrix-blue)](https://ghcr.io/junkerderprovinz/matrix)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 
-Ein vollständiges, Plug-and-Play-Docker-Image für deinen eigenen **Matrix-Homeserver** auf Unraid.
-Kein manuelles Bearbeiten von Konfigurationsdateien, kein SSH-Zugang zum Container nötig –
-trage einfach deine Domain und Datenbankdaten ein und der Container erledigt den Rest.
+A complete, plug-and-play Docker image for running your own **Matrix homeserver** on Unraid.
+No manual config file editing, no SSH access to the container required —
+just enter your domain and database credentials and the container handles the rest.
 
 ---
 
-## Inhaltsverzeichnis
+## Table of Contents
 
-1. [Was ist das?](#1-was-ist-das)
-2. [Schnellstart Unraid](#2-schnellstart-unraid)
-3. [PostgreSQL vorbereiten](#3-postgresql-vorbereiten)
-4. [NPM-Konfiguration](#4-npm-konfiguration-nginx-proxy-manager)
-5. [Federation aktivieren](#5-federation-aktivieren)
-6. [Ersten Admin-User anlegen](#6-ersten-admin-user-anlegen)
-7. [Registration-Tokens erzeugen](#7-registration-tokens-erzeugen)
+1. [What is this?](#1-what-is-this)
+2. [Quick Start on Unraid](#2-quick-start-on-unraid)
+3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
+4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
+5. [Enabling Federation](#5-enabling-federation)
+6. [Creating the First Admin User](#6-creating-the-first-admin-user)
+7. [Generating Registration Tokens](#7-generating-registration-tokens)
 8. [Updates](#8-updates)
 9. [Troubleshooting](#9-troubleshooting)
-10. [Mitwirken / Lizenz](#10-mitwirken--lizenz)
+10. [Contributing / License](#10-contributing--license)
 
 ---
 
-## 1. Was ist das?
+## 1. What Is This?
 
-Dieses Image ist ein **Wrapper um das offizielle Synapse-Image** von Element (`ghcr.io/element-hq/synapse`).
-Es ergänzt das nackte Synapse um alle Komponenten, die man für einen vollständig funktionierenden
-Matrix-Homeserver braucht:
+This image is a **wrapper around the official Synapse image** from Element (`ghcr.io/element-hq/synapse`).
+It extends bare Synapse with all the components needed for a fully functional
+Matrix homeserver:
 
-| Komponente | Zweck | Port |
+| Component | Purpose | Port |
 |---|---|---|
-| **Synapse** | Matrix-Homeserver (Kernkomponente) | 8008 |
-| **coturn** | TURN/STUN-Server für Sprach- und Videoanrufe | 3478, 5349 |
-| **Element Web** | Moderner Matrix-Client (Web-UI) | 8080/element/ |
-| **Synapse-Admin** | Admin-Oberfläche (User, Räume, Tokens) | 8080/admin/ |
-| **lighttpd** | Schlanker Webserver für Element + Admin | 8080 |
+| **Synapse** | Matrix homeserver (core component) | 8008 |
+| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349 |
+| **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
+| **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
+| **lighttpd** | Lightweight web server for Element + Admin | 8080 |
 
-**Warum ein Wrapper statt selbst kompilieren?**
-Das offizielle Synapse-Image erhält sofort Security-Patches und ist für jede neue Synapse-Version
-getestet. Wir bauen *darauf auf* statt daneben – das bedeutet: immer aktuell, ohne eigenen
-Synapse-Build-Prozess. Der GitHub Actions Workflow prüft stündlich auf neue Synapse-Releases und
-baut das Image automatisch neu.
+**Why a wrapper instead of building from scratch?**
+The official Synapse image receives security patches immediately and is tested against every new
+Synapse release. We build *on top of it* rather than alongside it — meaning: always up to date,
+without maintaining our own Synapse build pipeline. The GitHub Actions workflow checks for new
+Synapse releases every hour and rebuilds the image automatically.
 
-**Postgres ist extern** – das Image enthält keine eigene Datenbank. Synapse braucht PostgreSQL
-mit speziellen Locale-Einstellungen (siehe Abschnitt 3), und du hast damit volle Kontrolle über
-Backups, Verbindungen und Performance.
+**PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
+with specific locale settings (see section 3), and keeping it external gives you full control over
+backups, connections, and performance.
 
 ---
 
-## 2. Schnellstart Unraid
+## 2. Quick Start on Unraid
 
-### Schritt 1 – PostgreSQL-Datenbank anlegen
+### Step 1 — Create the PostgreSQL database
 
-Bevor du das Matrix-Template installierst, muss die Datenbank bereit sein.
-Folge Abschnitt 3 dieser Anleitung.
+Before installing the Matrix template, the database must be ready.
+Follow section 3 of this guide.
 
-### Schritt 2 – Template installieren
+### Step 2 — Install the template
 
-**Option A: Community Applications (empfohlen)**
+**Option A: Community Applications (recommended)**
 
-1. Öffne in Unraid: **Apps → Community Applications**
-2. Suche nach `Matrix All-in-One`
-3. Klicke **Install**
+1. In Unraid, open: **Apps → Community Applications**
+2. Search for `Matrix All-in-One`
+3. Click **Install**
 
-**Option B: Template-URL manuell**
+**Option B: Manual template URL**
 
 1. Unraid → **Docker → Add Container**
-2. Klicke rechts oben auf **Template-URLs**
-3. Füge folgende URL ein:
+2. Click **Template URLs** in the top right
+3. Paste the following URL:
    ```
    https://raw.githubusercontent.com/junkerderprovinz/matrix/main/unraid-template.xml
    ```
-4. Klicke **Save** und wähle dann **Matrix** aus der Template-Liste
+4. Click **Save**, then select **Matrix** from the template list
 
-### Schritt 3 – Pflichtfelder ausfüllen
+### Step 3 — Fill in the required fields
 
-Im Template-Formular musst du folgende Felder anpassen:
+In the template form, you must configure the following fields:
 
-| Feld | Beispielwert | Hinweis |
+| Field | Example value | Note |
 |---|---|---|
-| `SERVER_NAME` | `matrix.deinedomain.tld` | **Kann nie geändert werden!** |
-| `POSTGRES_HOST` | `PostgreSQL15` | Container-Name oder IP |
-| `POSTGRES_USER` | `synapse` | Muss in PostgreSQL angelegt sein |
-| `POSTGRES_PASSWORD` | `geheimespasswort` | Wird verdeckt gespeichert |
-| `POSTGRES_DB` | `synapse` | Muss mit korrekter Locale existieren |
+| `SERVER_NAME` | `matrix.yourdomain.tld` | **Can never be changed!** |
+| `POSTGRES_HOST` | `PostgreSQL15` | Container name or IP |
+| `POSTGRES_USER` | `synapse` | Must exist in PostgreSQL |
+| `POSTGRES_PASSWORD` | `yoursecretpassword` | Stored masked |
+| `POSTGRES_DB` | `synapse` | Must exist with correct locale settings |
 
-> **Wichtig:** Der `SERVER_NAME` ist der Kern deiner Matrix-Identität. Alle User-IDs haben die Form
-> `@benutzername:SERVER_NAME`. Diese Einstellung **kann nach dem ersten Start nicht mehr geändert
-> werden** ohne die gesamte Datenbank zu löschen.
+> **Important:** `SERVER_NAME` is the foundation of your Matrix identity. All user IDs take the form
+> `@username:SERVER_NAME`. This setting **cannot be changed after the first run** without dropping
+> the entire database.
 
-### Schritt 4 – Container starten und Logs prüfen
+### Step 4 — Start the container and check the logs
 
-1. Klicke **Apply** → Container startet
-2. Öffne in Unraid: **Docker → Matrix → Logs**
-3. Du solltest sehen: `[init] INFO: Container initialization complete. Starting services ...`
-4. Nach ca. 30–60 Sekunden ist Synapse bereit
+1. Click **Apply** → the container starts
+2. In Unraid, open: **Docker → Matrix → Logs**
+3. You should see: `[init] INFO: Container initialization complete. Starting services ...`
+4. After approximately 30–60 seconds, Synapse is ready
 
-### Schritt 5 – NPM einrichten
+### Step 5 — Configure NPM
 
-Folge Abschnitt 4 dieser Anleitung, um Synapse über HTTPS erreichbar zu machen.
+Follow section 4 of this guide to make Synapse accessible over HTTPS.
 
 ---
 
-## 3. PostgreSQL vorbereiten
+## 3. Setting Up PostgreSQL
 
-Synapse hat **strikte Anforderungen** an die PostgreSQL-Datenbank:
+Synapse has **strict requirements** for the PostgreSQL database:
 - Encoding: `UTF8`
 - LC_COLLATE: `C`
 - LC_CTYPE: `C`
 
-Ohne diese genauen Einstellungen verweigert Synapse den Start mit einem Fehler wie
-`database encoding is not UTF8` oder `collation mismatch`.
+Without these exact settings, Synapse will refuse to start with an error such as
+`database encoding is not UTF8` or `collation mismatch`.
 
-### Verbindung zur PostgreSQL-Konsole
+### Connecting to the PostgreSQL console
 
-**In Unraid via Docker-Terminal:**
+**In Unraid via Docker terminal:**
 
-1. Öffne **Docker → PostgreSQL15 → Console**
-2. Gib ein:
+1. Open **Docker → PostgreSQL15 → Console**
+2. Enter:
 
 ```bash
 psql -U postgres
 ```
 
-### Benutzer und Datenbank anlegen
+### Creating the user and database
 
 ```sql
--- Synapse-Datenbankbenutzer anlegen
-CREATE USER synapse WITH PASSWORD 'DEIN_SICHERES_PASSWORT';
+-- Create the Synapse database user
+CREATE USER synapse WITH PASSWORD 'YOUR_SECURE_PASSWORD';
 
--- Datenbank mit den von Synapse geforderten Locale-Einstellungen anlegen
--- WICHTIG: template0 verwenden, nicht template1 – nur template0 erlaubt
---          das Überschreiben von LC_COLLATE und LC_CTYPE
+-- Create the database with the locale settings required by Synapse
+-- IMPORTANT: use template0, not template1 — only template0 allows
+--            overriding LC_COLLATE and LC_CTYPE
 CREATE DATABASE synapse
     OWNER synapse
     ENCODING 'UTF8'
@@ -143,114 +143,113 @@ CREATE DATABASE synapse
     LC_CTYPE   = 'C'
     TEMPLATE template0;
 
--- Berechtigungen setzen
+-- Grant permissions
 GRANT ALL PRIVILEGES ON DATABASE synapse TO synapse;
 
--- Verbindung testen
+-- Test the connection
 \c synapse synapse
--- Wenn kein Fehler erscheint: alles korrekt
+-- If no error appears: everything is correct
 \q
 ```
 
-### Verbindung zwischen Containern
+### Connectivity between containers
 
-Bei Unraid-Bridge-Network erreichst du den PostgreSQL-Container am einfachsten
-über den **Container-Namen** (z. B. `PostgreSQL15`) als Hostname, wenn beide
-Container im selben benutzerdefinierten Docker-Network sind.
+On Unraid's bridge network, the easiest way to reach the PostgreSQL container is via its
+**container name** (e.g. `PostgreSQL15`) as the hostname, provided both containers are on the
+same custom Docker network.
 
-**Empfohlene Methode – Custom Network:**
+**Recommended approach — custom network:**
 
-1. Unraid → **Settings → Docker → IPv4 custom network subnet** → aktivieren
-2. Beide Container (PostgreSQL + Matrix) im selben Network starten
-3. Als `POSTGRES_HOST` den Container-Namen `PostgreSQL15` verwenden
+1. Unraid → **Settings → Docker → IPv4 custom network subnet** → enable
+2. Start both containers (PostgreSQL + Matrix) on the same network
+3. Use the container name `PostgreSQL15` as `POSTGRES_HOST`
 
-**Alternative – Bridge über Host-IP:**
+**Alternative — bridge via host IP:**
 
-Als `POSTGRES_HOST` die LAN-IP deines Unraid-Servers eintragen (z. B. `192.168.1.100`).
-PostgreSQL muss dann auf `0.0.0.0` lauschen (nicht nur auf localhost).
+Set `POSTGRES_HOST` to the LAN IP of your Unraid server (e.g. `192.168.1.100`).
+PostgreSQL must then listen on `0.0.0.0` (not just localhost).
 
 ---
 
-## 4. NPM-Konfiguration (Nginx Proxy Manager)
+## 4. NPM Configuration (Nginx Proxy Manager)
 
-Matrix-Clients erwarten HTTPS. Der Matrix-Container selbst macht kein TLS –
-das übernimmt Nginx Proxy Manager als Reverse Proxy.
+Matrix clients require HTTPS. The Matrix container itself does not handle TLS —
+that is delegated to Nginx Proxy Manager as the reverse proxy.
 
-Du brauchst **zwei Proxy Hosts** in NPM:
+You need **two proxy hosts** in NPM:
 
-### 4.1 Proxy Host: Matrix API (matrix.deinedomain.tld)
+### 4.1 Proxy host: Matrix API (matrix.yourdomain.tld)
 
 **NPM → Hosts → Add Proxy Host**
 
-| Feld | Wert |
+| Field | Value |
 |---|---|
-| Domain Names | `matrix.deinedomain.tld` |
+| Domain Names | `matrix.yourdomain.tld` |
 | Scheme | `http` |
-| Forward Hostname/IP | `UNRAID-IP` oder Container-Name |
+| Forward Hostname/IP | `UNRAID-IP` or container name |
 | Forward Port | `8008` |
-| Websockets Support | **aktiviert** |
-| Block Common Exploits | aktiviert |
+| Websockets Support | **enabled** |
+| Block Common Exploits | enabled |
 
-**SSL Tab:** Let's Encrypt Zertifikat ausstellen → Force SSL aktivieren
+**SSL tab:** Issue a Let's Encrypt certificate → enable Force SSL
 
-**Custom Nginx Configuration** (Advanced-Tab):
+**Custom Nginx configuration** (Advanced tab):
 
 ```nginx
-# Matrix benötigt große Uploads (Medien, Dateien)
+# Matrix requires large uploads (media, files)
 client_max_body_size 100M;
 
-# WebSocket-Support für Matrix Sync (Long-Polling)
+# WebSocket support for Matrix Sync (long-polling)
 proxy_read_timeout 600s;
 proxy_send_timeout 600s;
 
-# Weitergabe der echten Client-IP (für x_forwarded: true in homeserver.yaml)
+# Forward the real client IP (for x_forwarded: true in homeserver.yaml)
 proxy_set_header X-Forwarded-For $remote_addr;
 proxy_set_header X-Forwarded-Proto $scheme;
 
-# Matrix-spezifische Header
+# Matrix-specific headers
 proxy_set_header Host $host;
 proxy_http_version 1.1;
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
 ```
 
-### 4.2 Proxy Host: Element Web + Admin (optional eigene Domain)
+### 4.2 Proxy host: Element Web + Admin (optional custom domain)
 
-Wenn du Element Web unter einer eigenen Domain (z. B. `element.deinedomain.tld`) erreichbar
-machen willst:
+If you want Element Web accessible under its own domain (e.g. `element.yourdomain.tld`):
 
-| Feld | Wert |
+| Field | Value |
 |---|---|
-| Domain Names | `element.deinedomain.tld` |
+| Domain Names | `element.yourdomain.tld` |
 | Scheme | `http` |
 | Forward Hostname/IP | `UNRAID-IP` |
 | Forward Port | `8080` |
 
-Element ist dann unter `https://element.deinedomain.tld/element/` erreichbar.
+Element is then available at `https://element.yourdomain.tld/element/`.
 
 ---
 
-## 5. Federation aktivieren
+## 5. Enabling Federation
 
-Matrix-Federation erlaubt es, mit Benutzern auf anderen Servern zu kommunizieren.
-Dafür müssen andere Server herausfinden können, wo dein Synapse läuft.
+Matrix federation allows you to communicate with users on other servers.
+For this to work, other servers need to be able to discover where your Synapse instance is running.
 
-Der empfohlene Weg ist die `/.well-known/matrix/server`-Datei auf deiner **Hauptdomain**
-(nicht der matrix.-Subdomain).
+The recommended approach is the `/.well-known/matrix/server` file on your **root domain**
+(not the matrix. subdomain).
 
-**Beispiel:** Wenn dein `SERVER_NAME` = `matrix.deinedomain.tld` ist, kannst du stattdessen
-eine sauberere Identität `deinedomain.tld` verwenden – aber das ist komplexer.
-Für den einfachsten Weg nimm `SERVER_NAME = matrix.deinedomain.tld`.
+**Example:** If your `SERVER_NAME` is `matrix.yourdomain.tld`, you could instead use
+a cleaner identity like `yourdomain.tld` — but that is more complex to configure.
+For the simplest setup, use `SERVER_NAME = matrix.yourdomain.tld`.
 
-### Well-Known via NPM-Custom-Response
+### Well-known via NPM custom response
 
-Wenn deine Hauptdomain bereits in NPM konfiguriert ist, füge folgende Custom Nginx Config ein:
+If your root domain is already configured in NPM, add the following custom Nginx config:
 
 ```nginx
 location /.well-known/matrix/server {
     add_header Content-Type application/json;
     add_header Access-Control-Allow-Origin *;
-    return 200 '{"m.server": "matrix.deinedomain.tld:443"}';
+    return 200 '{"m.server": "matrix.yourdomain.tld:443"}';
 }
 
 location /.well-known/matrix/client {
@@ -258,7 +257,7 @@ location /.well-known/matrix/client {
     add_header Access-Control-Allow-Origin *;
     return 200 '{
         "m.homeserver": {
-            "base_url": "https://matrix.deinedomain.tld"
+            "base_url": "https://matrix.yourdomain.tld"
         },
         "m.identity_server": {
             "base_url": "https://vector.im"
@@ -267,130 +266,130 @@ location /.well-known/matrix/client {
 }
 ```
 
-### Federation testen
+### Testing federation
 
-Nach dem Setup: [https://federationtester.matrix.org/](https://federationtester.matrix.org/)
+After setup, use: [https://federationtester.matrix.org/](https://federationtester.matrix.org/)
 
-Dort `matrix.deinedomain.tld` eingeben. Alle Checks sollten grün sein.
+Enter `matrix.yourdomain.tld`. All checks should be green.
 
-**Häufige Fehler beim Federation-Test:**
+**Common federation test errors:**
 
-- `DNS SRV record not found` → Normal wenn Well-Known korrekt ist, kein Problem
-- `Connection refused` → Port 8448 oder 443 nicht erreichbar → Firewall/NPM prüfen
-- `Certificate error` → SSL-Zertifikat nicht korrekt für die Domain
+- `DNS SRV record not found` → Normal when well-known is correctly configured, not a problem
+- `Connection refused` → Port 8448 or 443 not reachable → check firewall/NPM
+- `Certificate error` → SSL certificate not valid for the domain
 
 ---
 
-## 6. Ersten Admin-User anlegen
+## 6. Creating the First Admin User
 
-Nach dem ersten Start gibt es noch keine Benutzer. Da offene Registrierung deaktiviert ist,
-muss der erste Admin-User über die Kommandozeile angelegt werden.
+After the first run there are no users yet. Since open registration is disabled,
+the first admin user must be created via the command line.
 
-### Via Unraid Container-Konsole
+### Via the Unraid container console
 
 1. Unraid → **Docker → Matrix → Console**
-2. Führe folgenden Befehl aus (ersetze die Werte):
+2. Run the following command (replace the placeholder values):
 
 ```bash
 register_new_matrix_user \
   -c /data/homeserver.yaml \
-  -u DEIN_BENUTZERNAME \
-  -p DEIN_PASSWORT \
+  -u YOUR_USERNAME \
+  -p YOUR_PASSWORD \
   --admin \
   http://localhost:8008
 ```
 
-Du wirst nach Benutzername, Passwort und ob es ein Admin sein soll gefragt, wenn du die Flags
-`-u` und `-p` weglässt.
+You will be prompted for a username, password, and admin status interactively if you omit the
+`-u` and `-p` flags.
 
-> **Sicherheitshinweis:** Das Passwort wird im Befehlshistory gespeichert. Für Produktion
-> die Flags weglassen und interaktiv eingeben.
+> **Security note:** The password is stored in the shell history when passed as a flag. For
+> production use, omit the flags and enter credentials interactively.
 
-### Einloggen
+### Signing in
 
-Öffne `http://UNRAID-IP:8080/element/` im Browser.
+Open `http://UNRAID-IP:8080/element/` in your browser.
 
-1. Klicke auf **Sign In**
-2. Wähle **Edit** beim Homeserver
-3. Trage `https://matrix.deinedomain.tld` ein
-4. Melde dich mit Benutzername und Passwort an
+1. Click **Sign In**
+2. Click **Edit** next to the homeserver
+3. Enter `https://matrix.yourdomain.tld`
+4. Sign in with your username and password
 
 ---
 
-## 7. Registration-Tokens erzeugen
+## 7. Generating Registration Tokens
 
-Registration-Tokens erlauben es, eingeladenen Benutzern die Registrierung zu ermöglichen,
-ohne offene Registrierung für alle freizuschalten.
+Registration tokens let you invite specific users to register without enabling open registration
+for everyone.
 
-### Methode 1: Synapse-Admin (empfohlen)
+### Method 1: Synapse-Admin (recommended)
 
-1. Öffne `http://UNRAID-IP:8080/admin/`
-2. Logge dich mit dem Admin-User ein
+1. Open `http://UNRAID-IP:8080/admin/`
+2. Sign in with the admin user
 3. **Registration Tokens → Create Token**
-4. Einstellungen: maximale Nutzungen, Ablaufdatum
-5. Token kopieren und an den einzuladenden Benutzer weitergeben
+4. Configure: maximum uses, expiry date
+5. Copy the token and share it with the invited user
 
-### Methode 2: Admin API (curl)
+### Method 2: Admin API (curl)
 
 ```bash
-# Erst einen Access-Token für den Admin-User holen:
+# First, obtain an access token for the admin user:
 curl -XPOST \
-  'https://matrix.deinedomain.tld/_matrix/client/v3/login' \
+  'https://matrix.yourdomain.tld/_matrix/client/v3/login' \
   -H 'Content-Type: application/json' \
-  -d '{"type":"m.login.password","user":"ADMIN_USER","password":"ADMIN_PASSWORT"}'
+  -d '{"type":"m.login.password","user":"ADMIN_USER","password":"ADMIN_PASSWORD"}'
 
-# Token aus der Antwort kopieren, dann:
+# Copy the token from the response, then:
 curl -XPOST \
-  'https://matrix.deinedomain.tld/_synapse/admin/v1/registration_tokens/new' \
-  -H 'Authorization: Bearer DEIN_ACCESS_TOKEN' \
+  'https://matrix.yourdomain.tld/_synapse/admin/v1/registration_tokens/new' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
   -H 'Content-Type: application/json' \
   -d '{"uses_allowed": 1}'
 ```
 
-### Registration mit Token aktivieren
+### Enabling token-based registration
 
-Damit Benutzer sich mit einem Token registrieren können, muss in `/data/homeserver.yaml`
-(oder in `/data/homeserver-overrides.yaml`) folgendes gesetzt sein:
+For users to register with a token, the following must be set in `/data/homeserver.yaml`
+(or in `/data/homeserver-overrides.yaml`):
 
 ```yaml
 enable_registration: true
 registration_requires_token: true
 ```
 
-Starte dann den Container neu: **Docker → Matrix → Restart**
+Then restart the container: **Docker → Matrix → Restart**
 
 ---
 
 ## 8. Updates
 
-### Automatisches Image-Update (GitHub Actions)
+### Automatic image updates (GitHub Actions)
 
-Der GitHub Actions Workflow prüft **stündlich**, ob es eine neue Synapse-Version gibt.
-Wenn ja, wird das Image automatisch für `linux/amd64` und `linux/arm64` neu gebaut
-und zu `ghcr.io/junkerderprovinz/matrix:latest` gepusht.
+The GitHub Actions workflow checks **every hour** for a new Synapse release.
+When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
+and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
 
-### Unraid: Container aktualisieren
+### Updating the container on Unraid
 
 1. Unraid → **Docker → Matrix**
-2. Klicke auf das Container-Symbol → **Update available** erscheint wenn eine neue Version da ist
-3. Klicke **Update** → Unraid zieht das neue Image und startet den Container neu
+2. Click the container icon → **Update available** appears when a new version is out
+3. Click **Update** → Unraid pulls the new image and restarts the container
 
-**Oder via Unraid Update-All:** Unraid → **Docker → Update All Containers**
+**Or use Unraid's bulk update:** Unraid → **Docker → Update All Containers**
 
-> Das Update verändert keine Daten in `/data` – deine homeserver.yaml, Medien und Schlüssel
-> bleiben erhalten. Synapse-Migrationen werden beim Start automatisch ausgeführt.
+> Updates do not affect data in `/data` — your homeserver.yaml, media files, and signing keys
+> are preserved. Synapse database migrations run automatically on startup.
 
 ---
 
 ## 9. Troubleshooting
 
-### Fehler: "database encoding is not UTF8" oder "LC_COLLATE mismatch"
+### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
-**Ursache:** Die PostgreSQL-Datenbank wurde ohne die korrekten Locale-Einstellungen angelegt.
+**Cause:** The PostgreSQL database was created without the correct locale settings.
 
-**Lösung:**
+**Fix:**
 ```sql
--- Datenbank löschen und neu anlegen (Datenverlust!)
+-- Drop and recreate the database (data loss!)
 DROP DATABASE synapse;
 CREATE DATABASE synapse
     OWNER synapse
@@ -401,91 +400,91 @@ CREATE DATABASE synapse
 GRANT ALL PRIVILEGES ON DATABASE synapse TO synapse;
 ```
 
-### Fehler: "Permission denied" auf /data
+### Error: "Permission denied" on /data
 
-**Ursache:** Die Dateien in `/mnt/user/appdata/matrix/` gehören einem anderen User als `PUID:PGID`.
+**Cause:** Files in `/mnt/user/appdata/matrix/` are owned by a different user than `PUID:PGID`.
 
-**Lösung in Unraid-Terminal:**
+**Fix in the Unraid terminal:**
 ```bash
 chown -R 99:100 /mnt/user/appdata/matrix/
 ```
 
-### Fehler: Container startet nicht – "SERVER_NAME not set"
+### Error: Container won't start — "SERVER_NAME not set"
 
-**Ursache:** Die Umgebungsvariable `SERVER_NAME` ist im Template leer oder nicht gesetzt.
+**Cause:** The `SERVER_NAME` environment variable is empty or missing in the template.
 
-**Lösung:** Unraid → **Docker → Matrix → Edit** → `SERVER_NAME` ausfüllen → Apply
+**Fix:** Unraid → **Docker → Matrix → Edit** → fill in `SERVER_NAME` → Apply
 
-### Fehler: "Connection refused" zu PostgreSQL
+### Error: "Connection refused" to PostgreSQL
 
-**Ursache:** Der Matrix-Container kann den PostgreSQL-Container nicht erreichen.
+**Cause:** The Matrix container cannot reach the PostgreSQL container.
 
-**Prüfliste:**
-1. Läuft der PostgreSQL-Container? → Unraid Docker-Tab prüfen
-2. Richtiger `POSTGRES_HOST`? → Container-Name oder IP korrekt?
-3. Beide Container im selben Docker-Network?
-4. PostgreSQL hört auf `0.0.0.0`? → In PostgreSQL: `listen_addresses = '*'` in `postgresql.conf`
-5. `pg_hba.conf` erlaubt Verbindungen vom Matrix-Container?
+**Checklist:**
+1. Is the PostgreSQL container running? → Check the Unraid Docker tab
+2. Correct `POSTGRES_HOST`? → Is the container name or IP right?
+3. Are both containers on the same Docker network?
+4. Is PostgreSQL listening on `0.0.0.0`? → In PostgreSQL: `listen_addresses = '*'` in `postgresql.conf`
+5. Does `pg_hba.conf` allow connections from the Matrix container?
 
-### Federation-Test schlägt fehl
+### Federation test failing
 
-**Häufige Ursachen:**
+**Common causes:**
 
-| Fehler | Ursache | Lösung |
+| Error | Cause | Fix |
 |---|---|---|
-| `No SRV or well-known` | Well-Known fehlt | Abschnitt 5 befolgen |
-| `TLS certificate error` | Zertifikat ungültig | NPM SSL-Zertifikat erneuern |
-| `Connection timeout` | Port 443/8448 geblockt | Router-Portweiterleitung prüfen |
-| `Invalid JSON` | Well-Known Config fehlerhaft | JSON-Syntax prüfen |
+| `No SRV or well-known` | well-known missing | Follow section 5 |
+| `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
+| `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
+| `Invalid JSON` | well-known config malformed | Check JSON syntax |
 
-### Logs einsehen
+### Viewing logs
 
 **In Unraid:**
-- Docker → Matrix → Symbol → Logs
+- Docker → Matrix → icon → Logs
 
-**Via Terminal:**
+**Via terminal:**
 ```bash
 docker logs matrix --follow --tail 100
 ```
 
-**Synapse-eigene Logs** (wenn in /data/logs/ konfiguriert):
+**Synapse's own logs** (if configured in /data/logs/):
 ```bash
 tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 ```
 
-### TURN/Videoanrufe funktionieren nicht
+### TURN/video calls not working
 
-1. Ports 3478 (TCP+UDP) im Router freigeben und auf Unraid-IP weiterleiten
-2. In `homeserver.yaml` prüfen ob `turn_uris` korrekt gesetzt sind (passiert automatisch)
-3. TURN-Secret in `homeserver.yaml` und `turnserver.conf` müssen übereinstimmen
-   (beide werden aus `/data/.turn_secret` befüllt – bei Problemen Container-Logs prüfen)
-4. `denied-peer-ip` in `turnserver.conf` blockiert private IPs – für LAN-Tests kann das
-   relevant sein, für Internet-Anrufe nicht
-
----
-
-## 10. Mitwirken / Lizenz
-
-### Issues & Feature Requests
-
-Fehler gefunden? Feature-Wunsch? → [GitHub Issues](https://github.com/junkerderprovinz/matrix/issues)
-
-### Pull Requests
-
-PRs sind willkommen. Bitte:
-1. Fork erstellen
-2. Feature-Branch anlegen (`git checkout -b feature/mein-feature`)
-3. Shellcheck und hadolint lokal prüfen (oder dem lint-Workflow vertrauen)
-4. PR gegen `main` öffnen
-
-### Lizenz
-
-Apache 2.0 — siehe [LICENSE](LICENSE)
-
-Dieses Projekt ist nicht offiziell mit Element HQ, der Matrix Foundation oder
-dem Element-Projekt assoziiert. Synapse, Element und coturn sind ihre jeweiligen
-Marken/Projekte und werden hier unverändert als Basis-Images / Pakete verwendet.
+1. Open ports 3478 (TCP+UDP) in your router and forward them to the Unraid IP
+2. Verify that `turn_uris` is correctly set in `homeserver.yaml` (this happens automatically)
+3. The TURN shared secret in `homeserver.yaml` and `turnserver.conf` must match
+   (both are populated from `/data/.turn_secret` — check container logs if there are issues)
+4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges — this may affect LAN testing
+   but is not relevant for calls over the internet
 
 ---
 
-*Gebaut mit ❤️ für die Unraid-Community.*
+## 10. Contributing / License
+
+### Issues & feature requests
+
+Found a bug? Have a feature request? → [GitHub Issues](https://github.com/junkerderprovinz/matrix/issues)
+
+### Pull requests
+
+PRs are welcome. Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Run shellcheck and hadolint locally (or rely on the lint workflow)
+4. Open a PR against `main`
+
+### License
+
+Apache 2.0 — see [LICENSE](LICENSE)
+
+This project is not officially affiliated with Element HQ, the Matrix Foundation, or
+the Element project. Synapse, Element, and coturn are their respective
+trademarks/projects and are used here unmodified as base images / packages.
+
+---
+
+*Built with ❤️ for the Unraid community.*
