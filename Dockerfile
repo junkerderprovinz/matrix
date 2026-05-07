@@ -52,8 +52,15 @@ LABEL org.opencontainers.image.title="Matrix All-in-One" \
       org.opencontainers.image.vendor="junkerderprovinz" \
       maintainer="junkerderprovinz"
 
-# Switch to root for system-level setup
+# Switch to root for system-level setup. s6-overlay (PID 1) will drop
+# privileges to the synapse user via the gosu calls inside services.d.
+# hadolint ignore=DL3002
 USER root
+
+# Use bash with pipefail for any RUN that uses pipes (curl | tar etc.)
+# so a failing curl aborts the build instead of being masked by tar.
+# hadolint ignore=DL4006
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install runtime dependencies in a single layer to keep image size down.
 # - coturn:        TURN/STUN server for voice/video calls
