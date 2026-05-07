@@ -9,7 +9,7 @@
 # without manually editing homeserver.yaml.
 #
 # Variables substituted:
-#   ${POSTGRES_HOST}     — hostname or container name of the Postgres server
+#   ${POSTGRES_HOST}     — hostname or IP+port of the Postgres server
 #   ${POSTGRES_PORT}     — Postgres port (default 5432)
 #   ${POSTGRES_USER}     — database user
 #   ${POSTGRES_PASSWORD} — database password
@@ -20,7 +20,7 @@
 
 # --- Database -----------------------------------------------------------------
 # Use external Postgres. The database MUST have been created with:
-#   CREATE DATABASE synapse
+#   CREATE DATABASE matrix
 #     ENCODING 'UTF8'
 #     LC_COLLATE='C'
 #     LC_CTYPE='C'
@@ -94,3 +94,19 @@ presence:
 # --- Experimental flags -------------------------------------------------------
 # None enabled by default. See https://matrix-org.github.io/synapse/latest/usage/configuration/config_documentation.html
 experimental_features: {}
+
+# --- Prometheus metrics -------------------------------------------------------
+# Exposes Synapse internal metrics for Prometheus scraping on port 9090.
+# Bind to 0.0.0.0 so Prometheus can reach it from the host network.
+# Path: /_synapse/metrics
+enable_metrics: true
+
+listeners:
+  - port: 9090
+    type: metrics
+    bind_addresses: ['0.0.0.0']
+
+# --- Appservices (bridges) ----------------------------------------------------
+# YAML files placed in /data/appservices/ are automatically loaded by Synapse.
+# Use this to register mautrix bridges (WhatsApp, Telegram, Signal, Discord …).
+app_service_config_files: []
