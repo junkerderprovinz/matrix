@@ -52,6 +52,10 @@ env:
   ELEMENT_VERSION: v1.11.92
   SYNAPSE_ADMIN_VERSION: "0.10.3"
   S6_OVERLAY_VERSION: "3.2.0.2"
+  # Opt into Node.js 24 for all JavaScript actions to silence the
+  # deprecation warning about Node.js 20. Safe — runner already ships
+  # Node 24, the actions run on it without code changes.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-and-push:
