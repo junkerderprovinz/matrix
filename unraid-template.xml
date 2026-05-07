@@ -77,6 +77,10 @@
           Description="coturn TURN over TLS (UDP). Optional — only needed if TLS certificates are configured for coturn."
           Type="Port" Display="advanced-hide" Required="false" Mask="false">5349</Config>
 
+  <Config Name="Prometheus Metrics" Target="9090" Default="9090" Mode="tcp"
+          Description="Prometheus metrics endpoint at /_synapse/metrics. Bind to a private network only — these metrics expose internal Synapse state."
+          Type="Port" Display="advanced" Required="false" Mask="false">9090</Config>
+
   <!-- =========================================================
        VOLUME
        ========================================================= -->
@@ -84,6 +88,10 @@
   <Config Name="Data Directory" Target="/data" Default="/mnt/user/appdata/matrix/"
           Description="Persistent data directory. Contains homeserver.yaml, media files, signing keys, and database connection info. NEVER delete this — doing so will destroy all signing keys and break federation."
           Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/matrix/</Config>
+
+  <Config Name="TURN-TLS Certs" Target="/data/certs" Default="" Mode="ro"
+          Description="Optional. Mount your TLS cert directory here (must contain fullchain.pem and privkey.pem) to enable TURN over TLS on port 5349. If left empty, plain TURN on port 3478 still works."
+          Type="Path" Display="advanced" Required="false" Mask="false"/>
 
   <!-- =========================================================
        REQUIRED ENVIRONMENT VARIABLES
