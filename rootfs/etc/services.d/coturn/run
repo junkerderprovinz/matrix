@@ -24,7 +24,7 @@ done
 
 # coturn must not be run as root. Drop to nobody (uid 65534) which has no
 # special privileges on the filesystem. coturn will handle its own log output.
-exec su-exec 65534:65534 \
+exec gosu 65534:65534 \
     /usr/bin/turnserver \
         --config "${TURN_CONF}" \
         --no-cli \
