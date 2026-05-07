@@ -96,7 +96,7 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
     # The official Synapse image no longer supports --generate-config on its own
     # startup path. We drive it explicitly here via python -m.
     log_info "Generating initial homeserver.yaml via synapse --generate-config ..."
-    su-exec "${PUID}:${PGID}" python -m synapse.app.homeserver \
+    gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
         --server-name "${SERVER_NAME}" \
         --config-path "${HOMESERVER_YAML}" \
         --generate-config \
