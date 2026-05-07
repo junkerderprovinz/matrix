@@ -18,7 +18,7 @@ PGID="${PGID:-100}"
 export SYNAPSE_SERVER_NAME="${SERVER_NAME}"
 export SYNAPSE_CONFIG_PATH="/data/homeserver.yaml"
 
-exec su-exec "${PUID}:${PGID}" \
+exec gosu "${PUID}:${PGID}" \
     python -m synapse.app.homeserver \
         --config-path /data/homeserver.yaml \
         --keys-directory /data
