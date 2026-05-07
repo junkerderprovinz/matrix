@@ -97,21 +97,21 @@
           Description="Send anonymous usage statistics to Matrix.org? 'yes' or 'no'. Recommended: 'no' for home servers."
           Type="Variable" Display="always" Required="true" Mask="false">no</Config>
 
-  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="PostgreSQL15"
-          Description="Hostname or container name of the PostgreSQL container. With a custom Unraid network: use the container name (e.g. PostgreSQL15). With bridge network: enter the IP address of the Unraid host."
-          Type="Variable" Display="always" Required="true" Mask="false">PostgreSQL15</Config>
+  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="192.168.1.10"
+          Description="IP address of your PostgreSQL server. Use the Unraid host IP (e.g. 192.168.1.10) plus the host port your Postgres container exposes. Container names work too, but only when both containers share the same custom Docker network — IP+port is more reliable."
+          Type="Variable" Display="always" Required="true" Mask="false">192.168.1.10</Config>
 
-  <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="synapse"
+  <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="admin"
           Description="PostgreSQL username for Synapse. Must already exist in PostgreSQL (see README — Setting Up PostgreSQL)."
-          Type="Variable" Display="always" Required="true" Mask="false">synapse</Config>
+          Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
 
   <Config Name="POSTGRES_PASSWORD" Target="POSTGRES_PASSWORD" Default=""
           Description="Password for the PostgreSQL Synapse user. Treated securely as a Docker secret."
           Type="Variable" Display="always" Required="true" Mask="true"/>
 
-  <Config Name="POSTGRES_DB" Target="POSTGRES_DB" Default="synapse"
+  <Config Name="POSTGRES_DB" Target="POSTGRES_DB" Default="matrix"
           Description="Name of the PostgreSQL database for Synapse. Must have been created with ENCODING UTF8, LC_COLLATE='C', LC_CTYPE='C' — otherwise Synapse will not start."
-          Type="Variable" Display="always" Required="true" Mask="false">synapse</Config>
+          Type="Variable" Display="always" Required="true" Mask="false">matrix</Config>
 
   <!-- =========================================================
        OPTIONAL / ADVANCED ENVIRONMENT VARIABLES
