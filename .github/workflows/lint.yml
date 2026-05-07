@@ -25,6 +25,11 @@ permissions:
   # Required by reviewdog to post inline PR annotations (optional enhancement)
   pull-requests: read
 
+env:
+  # Opt into Node.js 24 for all JavaScript actions to silence the
+  # deprecation warning about Node.js 20.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   hadolint:
     name: Lint Dockerfile (hadolint)
