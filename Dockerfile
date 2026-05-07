@@ -9,34 +9,43 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Stage 1 — Pull Element Web static assets
-# -----------------------------------------------------------------------------
-FROM vectorim/element-web:${ELEMENT_VERSION:-v1.11.92} AS element-web
-
-# -----------------------------------------------------------------------------
-# Stage 2 — Pull Synapse-Admin static assets
-# -----------------------------------------------------------------------------
-FROM awesometechnologies/synapse-admin:${SYNAPSE_ADMIN_VERSION:-0.10.3} AS synapse-admin
-
-# -----------------------------------------------------------------------------
-# Stage 3 — Final image, based on official Synapse
+# Global build args — declared BEFORE the first FROM so they are available
+# in every stage's FROM line. Per stage they still need to be re-declared
+# with `ARG <name>` to be available inside RUN/COPY/etc.
 # -----------------------------------------------------------------------------
 ARG SYNAPSE_VERSION=v1.152.1
 ARG ELEMENT_VERSION=v1.11.92
 ARG SYNAPSE_ADMIN_VERSION=0.10.3
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
+# -----------------------------------------------------------------------------
+# Stage 1 — Pull Element Web static assets
+# -----------------------------------------------------------------------------
+ARG ELEMENT_VERSION
+FROM vectorim/element-web:${ELEMENT_VERSION} AS element-web
+
+# -----------------------------------------------------------------------------
+# Stage 2 — Pull Synapse-Admin static assets
+# -----------------------------------------------------------------------------
+ARG SYNAPSE_ADMIN_VERSION
+FROM awesometechnologies/synapse-admin:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
+
+# -----------------------------------------------------------------------------
+# Stage 3 — Final image, based on official Synapse
+# -----------------------------------------------------------------------------
+ARG SYNAPSE_VERSION
 FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
 
-# Inherit build args into this stage
+# Re-declare args for use in RUN/LABEL inside this stage
 ARG SYNAPSE_VERSION
 ARG ELEMENT_VERSION
 ARG SYNAPSE_ADMIN_VERSION
 ARG S6_OVERLAY_VERSION
+ARG TARGETARCH
 
 # OCI image labels
 LABEL org.opencontainers.image.title="Matrix All-in-One" \
-      org.opencontainers.image.description="Synapse + coturn + Element Web + Synapse-Admin, Plug-and-Play für Unraid" \
+      org.opencontainers.image.description="Synapse + coturn + Element Web + Synapse-Admin, plug-and-play for Unraid" \
       org.opencontainers.image.source="https://github.com/junkerderprovinz/matrix" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="${SYNAPSE_VERSION}" \
@@ -72,7 +81,6 @@ RUN apt-get update \
 
 # Install s6-overlay v3 (init system + process supervisor).
 # Architecture mapping: Docker TARGETARCH uses different names than s6-overlay release filenames.
-ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
         amd64)  S6_ARCH="x86_64"   ;; \
         arm64)  S6_ARCH="aarch64"  ;; \
@@ -83,13 +91,17 @@ RUN case "${TARGETARCH}" in \
     && curl -fsSL "${S6_BASE}/s6-overlay-noarch.tar.xz"        | tar -C / -Jxp \
     && curl -fsSL "${S6_BASE}/s6-overlay-${S6_ARCH}.tar.xz"    | tar -C / -Jxp
 
-# Copy Element Web static assets from stage 1.
-# Element serves at /var/www/html/element/
-COPY --from=element-web /usr/share/nginx/html /var/www/html/element
-
-# Copy Synapse-Admin static assets from stage 2.
-# Admin UI serves at /var/www/html/admin/
-COPY --from=synapse-admin /usr/share/nginx/html /var/www/html/admin
+# -----------------------------------------------------------------------------
+# Copy static web assets from earlier stages.
+#
+# vectorim/element-web stores the built site at /app (the nginx container has
+# /usr/share/nginx/html as a symlink to /app — we copy the real path to avoid
+# dangling symlinks).
+#
+# awesometechnologies/synapse-admin uses the same convention: /app -> built site.
+# -----------------------------------------------------------------------------
+COPY --from=element-web   /app /var/www/html/element
+COPY --from=synapse-admin /app /var/www/html/admin
 
 # Copy our rootfs overlay (service scripts, config templates, init scripts)
 COPY rootfs/ /
@@ -97,9 +109,8 @@ COPY rootfs/ /
 # Make all shell scripts executable.
 # cont-init.d scripts: run once at startup (in lexicographic order)
 # services.d/*/run:   executed by s6 as long-running services
-RUN find /etc/cont-init.d /etc/services.d -name "run" -o -name "*.sh" \
-        | xargs chmod +x \
-    && chmod +x /etc/cont-init.d/10-config.sh
+RUN find /etc/cont-init.d /etc/services.d \( -name "run" -o -name "*.sh" \) -print0 \
+        | xargs -0 chmod +x
 
 # Synapse stores all persistent data here: homeserver.yaml, media, uploads, keys
 VOLUME /data
