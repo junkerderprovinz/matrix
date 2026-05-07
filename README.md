@@ -18,11 +18,14 @@ just enter your domain and database credentials and the container handles the re
 3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
 4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
 5. [Enabling Federation](#5-enabling-federation)
-6. [Creating the First Admin User](#6-creating-the-first-admin-user)
-7. [Generating Registration Tokens](#7-generating-registration-tokens)
-8. [Updates](#8-updates)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Contributing / License](#10-contributing--license)
+6. [Federation Auto-Config (well-known)](#6-federation-auto-config-well-known)
+7. [Monitoring (Prometheus)](#7-monitoring-prometheus)
+8. [Adding Bridges](#8-adding-bridges)
+9. [Creating the First Admin User](#9-creating-the-first-admin-user)
+10. [Generating Registration Tokens](#10-generating-registration-tokens)
+11. [Updates](#11-updates)
+12. [Troubleshooting](#12-troubleshooting)
+13. [Contributing / License](#13-contributing--license)
 
 ---
 
@@ -38,7 +41,8 @@ Matrix homeserver:
 | **coturn** | TURN/STUN server for voice and video calls | 3478, 5349 |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
 | **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
-| **lighttpd** | Lightweight web server for Element + Admin | 8080 |
+| **lighttpd** | Lightweight web server for Element, Admin, and well-known | 8080 |
+| **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **Why a wrapper instead of building from scratch?**
 The official Synapse image receives security patches immediately and is tested against every new
@@ -84,10 +88,10 @@ In the template form, you must configure the following fields:
 | Field | Example value | Note |
 |---|---|---|
 | `SERVER_NAME` | `matrix.yourdomain.tld` | **Can never be changed!** |
-| `POSTGRES_HOST` | `PostgreSQL15` | Container name or IP |
-| `POSTGRES_USER` | `synapse` | Must exist in PostgreSQL |
+| `POSTGRES_HOST` | `192.168.1.10` | Unraid host IP (see "Why IP?" below) |
+| `POSTGRES_USER` | `admin` | Must exist in PostgreSQL |
 | `POSTGRES_PASSWORD` | `yoursecretpassword` | Stored masked |
-| `POSTGRES_DB` | `synapse` | Must exist with correct locale settings |
+| `POSTGRES_DB` | `matrix` | Must exist with correct locale settings |
 
 > **Important:** `SERVER_NAME` is the foundation of your Matrix identity. All user IDs take the form
 > `@username:SERVER_NAME`. This setting **cannot be changed after the first run** without dropping
@@ -129,45 +133,54 @@ psql -U postgres
 
 ### Creating the user and database
 
+The SQL below uses `admin` as the database user and `matrix` as the database name —
+these are the **template defaults** documented here. You are free to choose different
+names; just make sure the `POSTGRES_USER` and `POSTGRES_DB` fields in the Unraid
+template match whatever values you actually create.
+
 ```sql
 -- Create the Synapse database user
-CREATE USER synapse WITH PASSWORD 'YOUR_SECURE_PASSWORD';
+-- (you may use any username; 'admin' is the template default)
+CREATE USER admin WITH PASSWORD 'yoursecretpassword';
 
 -- Create the database with the locale settings required by Synapse
 -- IMPORTANT: use template0, not template1 — only template0 allows
 --            overriding LC_COLLATE and LC_CTYPE
-CREATE DATABASE synapse
-    OWNER synapse
+CREATE DATABASE matrix
     ENCODING 'UTF8'
-    LC_COLLATE = 'C'
-    LC_CTYPE   = 'C'
-    TEMPLATE template0;
+    LC_COLLATE='C'
+    LC_CTYPE='C'
+    TEMPLATE template0
+    OWNER admin;
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE synapse TO synapse;
+GRANT ALL PRIVILEGES ON DATABASE matrix TO admin;
 
 -- Test the connection
-\c synapse synapse
+\c matrix admin
 -- If no error appears: everything is correct
 \q
 ```
 
-### Connectivity between containers
+### Why IP instead of container name?
 
-On Unraid's bridge network, the easiest way to reach the PostgreSQL container is via its
-**container name** (e.g. `PostgreSQL15`) as the hostname, provided both containers are on the
-same custom Docker network.
+By default, Unraid runs all containers on the standard `bridge` network. On this network,
+**container name resolution does not work** — Docker only resolves container names to IPs
+when both containers are on the same *custom* Docker network.
 
-**Recommended approach — custom network:**
+Using your Unraid host IP + the published PostgreSQL port works on any network type:
 
-1. Unraid → **Settings → Docker → IPv4 custom network subnet** → enable
-2. Start both containers (PostgreSQL + Matrix) on the same network
-3. Use the container name `PostgreSQL15` as `POSTGRES_HOST`
+```
+POSTGRES_HOST = 192.168.1.10
+POSTGRES_PORT = 5432
+```
 
-**Alternative — bridge via host IP:**
+This avoids "connection refused" errors that often happen when using the container name
+(`PostgreSQL15`) on the default bridge network.
 
-Set `POSTGRES_HOST` to the LAN IP of your Unraid server (e.g. `192.168.1.100`).
-PostgreSQL must then listen on `0.0.0.0` (not just localhost).
+**If you prefer container names:** create a custom Docker network in Unraid
+(*Settings → Docker → IPv4 custom network subnet* → enable), start both containers on it,
+and set `POSTGRES_HOST` to the PostgreSQL container name.
 
 ---
 
@@ -186,10 +199,14 @@ You need **two proxy hosts** in NPM:
 |---|---|
 | Domain Names | `matrix.yourdomain.tld` |
 | Scheme | `http` |
-| Forward Hostname/IP | `UNRAID-IP` or container name |
+| Forward Hostname/IP | `192.168.1.10` (your Unraid host IP) |
 | Forward Port | `8008` |
 | Websockets Support | **enabled** |
 | Block Common Exploits | enabled |
+
+> **Why IP instead of container name?**  
+> Container names only resolve inside custom Docker networks. Using `192.168.1.10:8008`
+> (Unraid host IP + published container port) works reliably on bridge networks too.
 
 **SSL tab:** Issue a Let's Encrypt certificate → enable Force SSL
 
@@ -222,7 +239,7 @@ If you want Element Web accessible under its own domain (e.g. `element.yourdomai
 |---|---|
 | Domain Names | `element.yourdomain.tld` |
 | Scheme | `http` |
-| Forward Hostname/IP | `UNRAID-IP` |
+| Forward Hostname/IP | `192.168.1.10` (your Unraid host IP) |
 | Forward Port | `8080` |
 
 Element is then available at `https://element.yourdomain.tld/element/`.
@@ -241,31 +258,6 @@ The recommended approach is the `/.well-known/matrix/server` file on your **root
 a cleaner identity like `yourdomain.tld` — but that is more complex to configure.
 For the simplest setup, use `SERVER_NAME = matrix.yourdomain.tld`.
 
-### Well-known via NPM custom response
-
-If your root domain is already configured in NPM, add the following custom Nginx config:
-
-```nginx
-location /.well-known/matrix/server {
-    add_header Content-Type application/json;
-    add_header Access-Control-Allow-Origin *;
-    return 200 '{"m.server": "matrix.yourdomain.tld:443"}';
-}
-
-location /.well-known/matrix/client {
-    add_header Content-Type application/json;
-    add_header Access-Control-Allow-Origin *;
-    return 200 '{
-        "m.homeserver": {
-            "base_url": "https://matrix.yourdomain.tld"
-        },
-        "m.identity_server": {
-            "base_url": "https://vector.im"
-        }
-    }';
-}
-```
-
 ### Testing federation
 
 After setup, use: [https://federationtester.matrix.org/](https://federationtester.matrix.org/)
@@ -280,7 +272,123 @@ Enter `matrix.yourdomain.tld`. All checks should be green.
 
 ---
 
-## 6. Creating the First Admin User
+## 6. Federation Auto-Config (well-known)
+
+The container now **automatically hosts** the Matrix well-known discovery files via lighttpd on port 8080:
+
+- `/.well-known/matrix/server` — tells other Matrix servers your federation endpoint
+- `/.well-known/matrix/client` — tells Matrix clients your homeserver URL
+
+These files are rendered fresh at every container start from the `SERVER_NAME` environment variable,
+so they always reflect the current configuration without any manual JSON editing.
+
+### Pointing your domain at the well-known endpoints
+
+For federation to work, the well-known files must be served on your **bare domain**
+(`yourdomain.tld`, *not* `matrix.yourdomain.tld`). The easiest way to do this in NPM is to add
+**custom locations** to the proxy host for your bare domain:
+
+**NPM → your bare-domain proxy host → Custom locations tab:**
+
+| Location | Forward Scheme | Forward Host/IP | Forward Port |
+|---|---|---|---|
+| `/.well-known/matrix/server` | `http` | `192.168.1.10` | `8080` |
+| `/.well-known/matrix/client` | `http` | `192.168.1.10` | `8080` |
+
+NPM custom locations config example (Advanced → Custom Nginx Config):
+
+```nginx
+location /.well-known/matrix/server {
+    proxy_pass http://192.168.1.10:8080/.well-known/matrix/server;
+    proxy_set_header Host $host;
+}
+
+location /.well-known/matrix/client {
+    proxy_pass http://192.168.1.10:8080/.well-known/matrix/client;
+    proxy_set_header Host $host;
+}
+```
+
+This **replaces** the manual approach of returning inline JSON from Nginx — the container now
+manages the JSON content and lighttpd serves it with the correct `Content-Type: application/json`
+and `Access-Control-Allow-Origin: *` headers automatically.
+
+---
+
+## 7. Monitoring (Prometheus)
+
+The container exposes Synapse's internal **Prometheus metrics** on port **9090**, bound to
+`0.0.0.0` so Prometheus can reach them from the host network.
+
+- **Port:** `9090`
+- **Path:** `/_synapse/metrics`
+- **Bind:** `0.0.0.0` (all interfaces)
+
+> Keep port 9090 on a private network — these metrics expose detailed internal Synapse state
+> and should not be publicly accessible.
+
+### Prometheus scrape_config example
+
+Add this to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: 'synapse'
+    metrics_path: /_synapse/metrics
+    static_configs:
+      - targets: ['192.168.1.10:9090']
+        labels:
+          instance: 'matrix.yourdomain.tld'
+```
+
+### Grafana dashboard
+
+The Synapse project maintains an official Grafana dashboard at:
+[https://github.com/element-hq/synapse/tree/develop/contrib/grafana](https://github.com/element-hq/synapse/tree/develop/contrib/grafana)
+
+Import the JSON dashboard into Grafana and point it at your Prometheus datasource to get
+a full view of federation lag, event processing rates, cache hit ratios, and more.
+
+---
+
+## 8. Adding Bridges
+
+**Bridges** connect your Matrix homeserver to other messaging platforms — WhatsApp, Telegram,
+Signal, Discord, iMessage, and more. They appear as bots in your Matrix rooms and relay
+messages transparently between networks.
+
+### Bridges are not bundled in this image
+
+This image deliberately does not include any bridges. Keeping the core image focused on
+Synapse, coturn, and the web UIs ensures a smaller attack surface and simpler upgrades.
+Each bridge has its own release cycle and dependencies that are better managed separately.
+
+### Recommended approach: mautrix bridges as separate containers
+
+The [mautrix bridge collection](https://docs.mau.fi/bridges/) is the most actively maintained
+set of Matrix bridges and covers WhatsApp, Telegram, Signal, Discord, Meta (Instagram/Facebook),
+Google Chat, and more. Run each bridge as its own Docker container alongside this one.
+
+**General workflow:**
+
+1. Run the bridge container once to generate its `config.yaml`
+2. Edit `config.yaml` to point at your Synapse homeserver URL and PostgreSQL database
+3. Run the bridge with `--generate-registration` to produce a `registration.yaml` file
+4. Copy `registration.yaml` into `/data/appservices/` inside the Matrix container
+5. Restart the Matrix container — Synapse will automatically load all `.yaml` files from
+   `/data/appservices/` at startup
+
+The `/data/appservices/` directory on your Unraid host maps to
+`/mnt/user/appdata/matrix/appservices/`. Create it manually if it does not yet exist.
+
+### Bridge documentation
+
+Full installation guides for every supported platform:
+**[https://docs.mau.fi/bridges/](https://docs.mau.fi/bridges/)**
+
+---
+
+## 9. Creating the First Admin User
 
 After the first run there are no users yet. Since open registration is disabled,
 the first admin user must be created via the command line.
@@ -316,7 +424,7 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 
 ---
 
-## 7. Generating Registration Tokens
+## 10. Generating Registration Tokens
 
 Registration tokens let you invite specific users to register without enabling open registration
 for everyone.
@@ -360,7 +468,7 @@ Then restart the container: **Docker → Matrix → Restart**
 
 ---
 
-## 8. Updates
+## 11. Updates
 
 ### Automatic image updates (GitHub Actions)
 
@@ -381,7 +489,7 @@ and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
 
 ---
 
-## 9. Troubleshooting
+## 12. Troubleshooting
 
 ### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
@@ -390,14 +498,14 @@ and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
 **Fix:**
 ```sql
 -- Drop and recreate the database (data loss!)
-DROP DATABASE synapse;
-CREATE DATABASE synapse
-    OWNER synapse
+DROP DATABASE matrix;
+CREATE DATABASE matrix
+    OWNER admin
     ENCODING 'UTF8'
-    LC_COLLATE = 'C'
-    LC_CTYPE   = 'C'
+    LC_COLLATE='C'
+    LC_CTYPE='C'
     TEMPLATE template0;
-GRANT ALL PRIVILEGES ON DATABASE synapse TO synapse;
+GRANT ALL PRIVILEGES ON DATABASE matrix TO admin;
 ```
 
 ### Error: "Permission denied" on /data
@@ -421,8 +529,8 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 
 **Checklist:**
 1. Is the PostgreSQL container running? → Check the Unraid Docker tab
-2. Correct `POSTGRES_HOST`? → Is the container name or IP right?
-3. Are both containers on the same Docker network?
+2. Correct `POSTGRES_HOST`? → Use the Unraid host IP (e.g. `192.168.1.10`) instead of a container name
+3. Correct `POSTGRES_PORT`? → Default is `5432`
 4. Is PostgreSQL listening on `0.0.0.0`? → In PostgreSQL: `listen_addresses = '*'` in `postgresql.conf`
 5. Does `pg_hba.conf` allow connections from the Matrix container?
 
@@ -432,10 +540,10 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 
 | Error | Cause | Fix |
 |---|---|---|
-| `No SRV or well-known` | well-known missing | Follow section 5 |
+| `No SRV or well-known` | well-known missing | Follow section 6 |
 | `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
 | `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
-| `Invalid JSON` | well-known config malformed | Check JSON syntax |
+| `Invalid JSON` | well-known config malformed | Restart container to re-render well-known files |
 
 ### Viewing logs
 
@@ -461,9 +569,32 @@ tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges — this may affect LAN testing
    but is not relevant for calls over the internet
 
+#### TURN over TLS (optional)
+
+To enable TURN over TLS on port 5349, mount a directory containing `fullchain.pem` and
+`privkey.pem` to `/data/certs/` inside the container. The filenames must be exactly:
+
+- `/data/certs/fullchain.pem`
+- `/data/certs/privkey.pem`
+
+**Tip:** NPM stores Let's Encrypt certificates in
+`/mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-X/`. You can symlink or copy them:
+
+```bash
+mkdir -p /mnt/user/appdata/matrix/certs
+cp /mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-1/fullchain.pem \
+   /mnt/user/appdata/matrix/certs/fullchain.pem
+cp /mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-1/privkey.pem \
+   /mnt/user/appdata/matrix/certs/privkey.pem
+```
+
+Then set the **TURN-TLS Certs** path in the Unraid template to `/mnt/user/appdata/matrix/certs`
+(mapped to `/data/certs` inside the container). If the cert files are missing, plain TURN on
+port 3478 still works — TLS is entirely optional.
+
 ---
 
-## 10. Contributing / License
+## 13. Contributing / License
 
 ### Issues & feature requests
 
@@ -487,4 +618,4 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 ---
 
-*Built with ❤️ for the Unraid community.*
+*Built with care for the Unraid community.*
