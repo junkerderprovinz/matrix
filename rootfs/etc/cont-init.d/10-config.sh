@@ -8,9 +8,11 @@
 #   2. Generate homeserver.yaml if it does not yet exist (first boot)
 #   3. Patch listener configuration (bind to 0.0.0.0, enable x_forwarded)
 #   4. Render/overwrite Postgres + performance config overlay
-#   5. Generate TURN secret and render turnserver.conf
-#   6. Render Element Web config.json (always, so domain changes take effect)
-#   7. Fix /data ownership so Synapse can write its files
+#   5. Check for TURN-TLS certs and set TURN_TLS_PREFIX accordingly
+#   6. Generate TURN secret and render turnserver.conf
+#   7. Render Element Web config.json (always, so domain changes take effect)
+#   8. Render well-known JSON files for federation and client discovery
+#   9. Fix /data ownership so Synapse can write its files
 #
 # Design decisions:
 #   - Idempotent: safe to re-run; step 2 is skipped when homeserver.yaml exists
@@ -189,18 +191,36 @@ if ! grep -q "homeserver-overrides.yaml" "${HOMESERVER_YAML}"; then
 fi
 
 # =============================================================================
-# 5. Render turnserver.conf from template
+# 5. Check for TURN-TLS certs and set prefix variable for template rendering
+# =============================================================================
+if [ -f /data/certs/fullchain.pem ] && [ -f /data/certs/privkey.pem ]; then
+    log_info "TURN-TLS certs found at /data/certs/ — TLS on port 5349 enabled"
+    TURN_TLS_ENABLED=1
+else
+    log_info "No TURN-TLS certs at /data/certs/ — TURN on port 3478 only (TLS skipped)"
+    TURN_TLS_ENABLED=0
+fi
+
+if [ "${TURN_TLS_ENABLED}" -eq 1 ]; then
+    TURN_TLS_PREFIX=""
+else
+    TURN_TLS_PREFIX="#"
+fi
+export TURN_TLS_ENABLED TURN_TLS_PREFIX
+
+# =============================================================================
+# 6. Render turnserver.conf from template
 # =============================================================================
 TURN_TMPL="/defaults/turnserver.conf.tmpl"
 TURN_OUT="/data/turnserver.conf"
 
 log_info "Rendering turnserver.conf from template ..."
-export SERVER_NAME TURN_SECRET
+export SERVER_NAME TURN_SECRET TURN_TLS_PREFIX
 envsubst < "${TURN_TMPL}" > "${TURN_OUT}"
 chmod 640 "${TURN_OUT}"
 
 # =============================================================================
-# 6. Render Element Web config.json (always — picks up SERVER_NAME changes)
+# 7. Render Element Web config.json (always — picks up SERVER_NAME changes)
 # =============================================================================
 ELEMENT_TMPL="/defaults/element-config.json.tmpl"
 ELEMENT_OUT="/var/www/html/element/config.json"
@@ -210,10 +230,27 @@ export SERVER_NAME
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
 
 # =============================================================================
-# 7. Ensure /data sub-directories exist with correct ownership
+# 8. Render well-known files (homeserver federation + client discovery)
+#    These are re-rendered on every start so SERVER_NAME changes propagate.
+# =============================================================================
+log_info "Rendering well-known files for ${SERVER_NAME} ..."
+mkdir -p /var/www/well-known
+
+cat > /var/www/well-known/server <<EOF
+{"m.server": "${SERVER_NAME}:443"}
+EOF
+
+cat > /var/www/well-known/client <<EOF
+{"m.homeserver": {"base_url": "https://${SERVER_NAME}"}}
+EOF
+
+log_info "Rendered well-known files for ${SERVER_NAME}"
+
+# =============================================================================
+# 9. Ensure /data sub-directories exist with correct ownership
 # =============================================================================
 log_info "Ensuring /data sub-directories exist ..."
-for dir in media_store uploads logs; do
+for dir in media_store uploads logs appservices; do
     mkdir -p "/data/${dir}"
     chown "${PUID}:${PGID}" "/data/${dir}"
 done
