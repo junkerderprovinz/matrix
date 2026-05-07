@@ -59,7 +59,7 @@ USER root
 # - coturn:        TURN/STUN server for voice/video calls
 # - lighttpd:      lightweight HTTP server for static assets (Element + Admin)
 # - gettext-base:  provides envsubst for template rendering
-# - su-exec:       minimal setuid helper (used by s6 service scripts)
+# - gosu:          minimal setuid helper (used by s6 service scripts)
 # - openssl:       generate random secrets (TURN secret, registration token)
 # - ca-certificates, curl: health checks and HTTPS fetches
 # - tzdata:        timezone data for TZ env var support
@@ -70,7 +70,7 @@ RUN apt-get update \
         coturn \
         lighttpd \
         gettext-base \
-        su-exec \
+        gosu \
         openssl \
         ca-certificates \
         curl \
