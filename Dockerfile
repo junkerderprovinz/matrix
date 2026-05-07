@@ -124,12 +124,13 @@ VOLUME /data
 
 # Port layout:
 #   8008/tcp  — Synapse Matrix HTTP API (behind reverse proxy)
-#   8080/tcp  — lighttpd: Element Web + Synapse-Admin
+#   8080/tcp  — lighttpd: Element Web + Synapse-Admin + well-known endpoints
 #   3478/tcp  — coturn TURN/STUN (TCP)
 #   3478/udp  — coturn TURN/STUN (UDP)
-#   5349/tcp  — coturn TURN over TLS (TCP, optional)
-#   5349/udp  — coturn TURN over TLS (UDP, optional)
-EXPOSE 8008/tcp 8080/tcp 3478/tcp 3478/udp 5349/tcp 5349/udp
+#   5349/tcp  — coturn TURN over TLS (TCP, optional — requires certs at /data/certs/)
+#   5349/udp  — coturn TURN over TLS (UDP, optional — requires certs at /data/certs/)
+#   9090/tcp  — Prometheus metrics endpoint (/_synapse/metrics)
+EXPOSE 8008/tcp 8080/tcp 3478/tcp 3478/udp 5349/tcp 5349/udp 9090/tcp
 
 # Health check: Synapse exposes a dedicated /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
