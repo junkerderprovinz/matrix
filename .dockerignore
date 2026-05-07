@@ -1,0 +1,35 @@
+# =============================================================================
+# .dockerignore — Matrix All-in-One
+# Excludes files that should not be sent to the Docker build context.
+# =============================================================================
+
+# Git metadata
+.git/
+.gitignore
+
+# GitHub Actions — not needed inside the image
+.github/
+
+# Documentation — not needed inside the image
+README.md
+LICENSE
+
+# Unraid template — not needed inside the image
+unraid-template.xml
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local secrets and test data
+*.env
+.env
+secrets/
+data/
+
+# Build artifacts
+*.zip
+*.tar.gz
+*.log

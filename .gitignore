@@ -1,0 +1,101 @@
+# =============================================================================
+# .gitignore — Matrix All-in-One
+# =============================================================================
+
+# --- Node.js / npm ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+.npm
+.node_repl_history
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Docker ---
+.dockerenv
+
+# --- OS X ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# --- Linux ---
+*~
+.directory
+.Trash-*
+
+# --- Windows ---
+Thumbs.db
+Thumbs.db:encdata
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# --- IDEs / Editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+.project
+.classpath
+.settings/
+.factorypath
+*.sublime-project
+*.sublime-workspace
+.editorconfig
+
+# --- Local secrets / data ---
+*.env
+.env
+.env.*
+secrets/
+data/
+*.key
+*.pem
+*.crt
+
+# --- Build artifacts ---
+*.zip
+*.tar.gz
+*.tar.xz
+dist/
+
+# --- Logs ---
+*.log
+logs/

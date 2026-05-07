@@ -1,0 +1,31 @@
+#!/bin/sh
+# =============================================================================
+# s6 service: coturn
+# Starts the coturn TURN/STUN server for Matrix voice/video calls.
+#
+# coturn reads its configuration from /data/turnserver.conf which is rendered
+# from the template by 10-config.sh at container startup.
+# =============================================================================
+
+# Wait until turnserver.conf has been written by the init script.
+# This handles the edge case where s6 starts services before cont-init.d finishes.
+TURN_CONF="/data/turnserver.conf"
+RETRIES=30
+i=0
+while [ ! -f "${TURN_CONF}" ]; do
+    if [ "${i}" -ge "${RETRIES}" ]; then
+        printf '[coturn] ERROR: %s not found after %d seconds, giving up.\n' "${TURN_CONF}" "${RETRIES}" >&2
+        exit 1
+    fi
+    printf '[coturn] Waiting for %s ...\n' "${TURN_CONF}"
+    sleep 1
+    i=$((i + 1))
+done
+
+# coturn must not be run as root. Drop to nobody (uid 65534) which has no
+# special privileges on the filesystem. coturn will handle its own log output.
+exec su-exec 65534:65534 \
+    /usr/bin/turnserver \
+        --config "${TURN_CONF}" \
+        --no-cli \
+        --log-file stdout

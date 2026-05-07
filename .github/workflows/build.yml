@@ -1,0 +1,195 @@
+# =============================================================================
+# build.yml — Matrix All-in-One Docker Image Build & Push
+#
+# Triggers:
+#   - Hourly cron: checks for new Synapse releases and builds if needed
+#   - workflow_dispatch: manual trigger (optionally force-rebuild)
+#   - push to main: always builds and pushes latest
+#
+# Output: multi-arch image (linux/amd64, linux/arm64) pushed to
+#         ghcr.io/junkerderprovinz/matrix with tags:
+#           :latest
+#           :v1.x.y       (full Synapse version tag)
+#           :1.x.y        (without leading 'v')
+# =============================================================================
+
+name: Build & Push Docker Image
+
+on:
+  # Run every hour to catch new Synapse releases
+  schedule:
+    - cron: '0 * * * *'
+
+  # Allow manual re-runs from the GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if image already exists for this tag'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+  # Build on every push to main (e.g. after updating Dockerfile or scripts)
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'unraid-template.xml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/junkerderprovinz/matrix
+  # Pinned component versions — update these to bump non-Synapse components
+  ELEMENT_VERSION: v1.11.92
+  SYNAPSE_ADMIN_VERSION: "0.10.3"
+  S6_OVERLAY_VERSION: "3.2.0.2"
+
+jobs:
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------------
+      # Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Determine the latest Synapse release tag
+      # -----------------------------------------------------------------------
+      - name: Get latest Synapse release tag
+        id: synapse
+        run: |
+          TAG=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/element-hq/synapse/releases/latest" \
+            | jq -r '.tag_name')
+
+          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
+            echo "::error::Could not determine latest Synapse release tag."
+            exit 1
+          fi
+
+          # Strip leading 'v' for the version-without-v tag
+          TAG_BARE="${TAG#v}"
+
+          echo "tag=${TAG}"      >> "${GITHUB_OUTPUT}"
+          echo "tag_bare=${TAG_BARE}" >> "${GITHUB_OUTPUT}"
+          echo "Synapse latest release: ${TAG}"
+
+      # -----------------------------------------------------------------------
+      # Check whether we have already published an image for this exact tag.
+      # If so, skip the build (unless force_rebuild=true or it's a push event).
+      # -----------------------------------------------------------------------
+      - name: Check if image already exists
+        id: check
+        run: |
+          TAG="${{ steps.synapse.outputs.tag }}"
+          IMAGE="${{ env.IMAGE_NAME }}:${TAG}"
+
+          SKIP="false"
+          FORCE="${{ github.event.inputs.force_rebuild }}"
+          EVENT="${{ github.event_name }}"
+
+          if [ "${EVENT}" = "push" ]; then
+            echo "Push event — always rebuilding."
+            SKIP="false"
+          elif [ "${FORCE}" = "true" ]; then
+            echo "Force rebuild requested — skipping existence check."
+            SKIP="false"
+          else
+            # docker manifest inspect returns 0 if the manifest exists
+            if docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+              echo "Image ${IMAGE} already exists — skipping build."
+              SKIP="true"
+            else
+              echo "Image ${IMAGE} not found — will build."
+              SKIP="false"
+            fi
+          fi
+
+          echo "skip=${SKIP}" >> "${GITHUB_OUTPUT}"
+
+      # -----------------------------------------------------------------------
+      # Authenticate to GitHub Container Registry
+      # -----------------------------------------------------------------------
+      - name: Log in to GHCR
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # Set up QEMU for multi-arch emulation (required for arm64 builds)
+      # -----------------------------------------------------------------------
+      - name: Set up QEMU
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/setup-qemu-action@v3
+
+      # -----------------------------------------------------------------------
+      # Set up Docker Buildx for multi-platform builds
+      # -----------------------------------------------------------------------
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------------------------------------------------
+      # Build and push the multi-arch image
+      # -----------------------------------------------------------------------
+      - name: Build and push
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag }}
+            ${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag_bare }}
+          build-args: |
+            SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
+            ELEMENT_VERSION=${{ env.ELEMENT_VERSION }}
+            SYNAPSE_ADMIN_VERSION=${{ env.SYNAPSE_ADMIN_VERSION }}
+            S6_OVERLAY_VERSION=${{ env.S6_OVERLAY_VERSION }}
+          # Use GitHub Actions cache to speed up subsequent builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.title=Matrix All-in-One
+            org.opencontainers.image.description=Synapse + coturn + Element Web + Synapse-Admin
+            org.opencontainers.image.source=https://github.com/junkerderprovinz/matrix
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}
+
+      # -----------------------------------------------------------------------
+      # Log a summary for easy visibility in the Actions UI
+      # -----------------------------------------------------------------------
+      - name: Build summary
+        if: always()
+        run: |
+          if [ "${{ steps.check.outputs.skip }}" = "true" ]; then
+            echo "### Skipped — image already up to date" >> "${GITHUB_STEP_SUMMARY}"
+            echo "Tag: \`${{ steps.synapse.outputs.tag }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "### Published" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| Tag | Image |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "|-----|-------|" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| latest | \`${{ env.IMAGE_NAME }}:latest\` |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| ${{ steps.synapse.outputs.tag }} | \`${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag }}\` |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| ${{ steps.synapse.outputs.tag_bare }} | \`${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag_bare }}\` |" >> "${GITHUB_STEP_SUMMARY}"
+          fi

@@ -1,0 +1,24 @@
+#!/bin/sh
+# =============================================================================
+# s6 service: lighttpd
+# Serves Element Web and Synapse-Admin as static files on port 8080.
+#
+# lighttpd is a lightweight HTTP server well-suited for serving static SPA
+# assets. Configuration is baked in at /defaults/lighttpd.conf (read-only).
+# =============================================================================
+
+# Ensure the document root exists (should always be true from Docker build,
+# but defensive check avoids a confusing lighttpd error message).
+if [ ! -d /var/www/html/element ]; then
+    printf '[lighttpd] ERROR: /var/www/html/element does not exist.\n' >&2
+    exit 1
+fi
+
+if [ ! -d /var/www/html/admin ]; then
+    printf '[lighttpd] ERROR: /var/www/html/admin does not exist.\n' >&2
+    exit 1
+fi
+
+# lighttpd needs a writable upload temp dir; /tmp is fine for a static server.
+# The -D flag runs it in the foreground (required for s6 process supervision).
+exec /usr/sbin/lighttpd -D -f /defaults/lighttpd.conf

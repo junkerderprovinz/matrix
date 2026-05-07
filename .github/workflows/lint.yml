@@ -1,0 +1,131 @@
+# =============================================================================
+# lint.yml — Static analysis for Dockerfile and shell scripts
+#
+# Runs on:
+#   - Pull Requests (any branch)
+#   - Push to main
+#
+# Tools:
+#   - hadolint:   Dockerfile linting (https://github.com/hadolint/hadolint)
+#   - shellcheck: Shell script static analysis (https://www.shellcheck.net)
+# =============================================================================
+
+name: Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  # Required by reviewdog to post inline PR annotations (optional enhancement)
+  pull-requests: read
+
+jobs:
+  hadolint:
+    name: Lint Dockerfile (hadolint)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          # DL3008: pin apt package versions — acceptable for a wrapper image
+          #          that deliberately tracks upstream
+          # DL3009: delete apt lists — already handled with rm -rf /var/lib/apt/lists/*
+          # SC2086: double-quote variable references — shellcheck handles these in .sh files
+          ignore: DL3008,DL3009
+          failure-threshold: warning
+
+  shellcheck:
+    name: Lint shell scripts (shellcheck)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends shellcheck
+
+      - name: Run shellcheck on all shell scripts
+        run: |
+          # Find all executable shell scripts in rootfs/
+          # Explicitly include scripts without .sh extension (s6 run scripts)
+          SCRIPTS=$(find rootfs/ -type f \( -name "*.sh" -o -name "run" \))
+
+          if [ -z "${SCRIPTS}" ]; then
+            echo "No shell scripts found."
+            exit 0
+          fi
+
+          echo "Checking the following scripts:"
+          echo "${SCRIPTS}"
+          echo "---"
+
+          # shellcheck:
+          #   -S warning: treat warnings as errors
+          #   -x:         follow sourced files
+          #   -e SC1091:  allow sourcing files not present at lint time
+          # shellcheck disable=SC2086
+          shellcheck -S warning -x -e SC1091 ${SCRIPTS}
+
+          echo "All scripts passed shellcheck."
+
+  yaml-lint:
+    name: Lint YAML files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint on GitHub Actions workflows
+        run: |
+          yamllint -d '{
+            extends: default,
+            rules: {
+              line-length: {max: 160},
+              truthy: {allowed-values: ["true", "false", "on", "off", "yes", "no"]}
+            }
+          }' .github/workflows/
+
+      - name: Validate template YAML syntax
+        run: |
+          python3 -c "
+          import yaml, sys, glob
+
+          files = glob.glob('rootfs/defaults/*.yaml.tmpl')
+          errors = []
+          for f in files:
+              # Replace envsubst placeholders with dummy values for syntax check
+              with open(f) as fh:
+                  content = fh.read()
+              import re
+              content = re.sub(r'\$\{[^}]+\}', 'PLACEHOLDER', content)
+              try:
+                  yaml.safe_load(content)
+                  print(f'OK: {f}')
+              except yaml.YAMLError as e:
+                  errors.append(f'{f}: {e}')
+
+          if errors:
+              for err in errors:
+                  print(f'ERROR: {err}', file=sys.stderr)
+              sys.exit(1)
+          else:
+              print('All YAML templates parsed successfully.')
+          "
