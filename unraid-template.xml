@@ -10,32 +10,26 @@
   <Support>https://github.com/junkerderprovinz/matrix/issues</Support>
   <Project>https://matrix.org</Project>
   <Overview>
-    Matrix All-in-One is a plug-and-play Docker image for running your own Matrix homeserver on Unraid.
-    It combines all the necessary components in a single container:
+    All-in-one Matrix homeserver for Unraid: Synapse + coturn + Element Web (/element/) + Synapse-Admin (/admin/).
+    Plug-and-play — just fill in SERVER_NAME and Postgres connection, everything else is generated automatically.
 
-    &#x2022; Synapse (Matrix homeserver, based on the official Element image)
-    &#x2022; coturn (TURN/STUN server for voice and video calls)
-    &#x2022; Element Web (modern Matrix client, available at /element/)
-    &#x2022; Synapse-Admin (administration interface, available at /admin/)
-    &#x2022; lighttpd (lightweight web server for the static web UIs)
+    PREREQUISITES (before starting the container):
 
-    Plug-and-play: simply enter your SERVER_NAME and PostgreSQL connection details —
-    on first run the container automatically generates the complete homeserver.yaml,
-    configures coturn with a random TURN shared secret, and sets up Element Web.
-    No SSH, no manual config file editing required.
+    1) PostgreSQL database — connect to your Postgres container and run:
+       CREATE USER matrix WITH PASSWORD 'yourpass';
+       CREATE DATABASE matrix ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C' TEMPLATE template0 OWNER matrix;
+       (UTF8 + LC_COLLATE='C' is mandatory — Synapse will refuse to start otherwise.)
 
-    IMPORTANT — Prerequisites:
-    1. A running PostgreSQL container (e.g. PostgreSQL15 from Community Applications).
-       The database MUST be created with ENCODING UTF8 and LC_COLLATE='C' (required by Synapse).
-    2. A reverse proxy (e.g. Nginx Proxy Manager) for HTTPS termination on port 8008.
-    3. A domain pointing to your Unraid IP.
+    2) Reverse proxy (Nginx Proxy Manager) for matrix.yourdomain.tld &#x2192; Unraid-IP:8008.
+       In the proxy host &#x2192; Advanced tab, add:
+         client_max_body_size 100m;
+         proxy_read_timeout 600s;
+       (Without these, media uploads fail and long-running requests time out.)
 
-    Step-by-step guide (PostgreSQL setup, NPM configuration, federation,
-    creating the first user): https://github.com/junkerderprovinz/matrix#readme
-
-    Available after startup at:
-    http://[IP]:[PORT:8080]/element/  – Element Web (Matrix client)
-    http://[IP]:[PORT:8080]/admin/    – Synapse-Admin
+    3) For federation: two extra Custom Locations on the SAME proxy host for
+       /.well-known/matrix/server and /.well-known/matrix/client &#x2192; Unraid-IP:8080.
+       Full step-by-step guide (NPM screenshots, well-known, first user):
+       https://github.com/junkerderprovinz/matrix#readme
   </Overview>
   <Category>Network:Messenger Network:Other Productivity:</Category>
   <WebUI>http://[IP]:[PORT:8080]/element/</WebUI>
@@ -54,31 +48,31 @@
        ========================================================= -->
 
   <Config Name="Matrix HTTP API" Target="8008" Default="8008" Mode="tcp"
-          Description="Synapse Matrix HTTP API. Must be exposed via a reverse proxy (e.g. Nginx Proxy Manager) with HTTPS. Do not expose directly to the internet."
+          Description="Synapse HTTP API. Expose via reverse proxy with HTTPS — never directly to the internet."
           Type="Port" Display="always" Required="true" Mask="false">8008</Config>
 
   <Config Name="Element Web + Synapse-Admin" Target="8080" Default="8080" Mode="tcp"
-          Description="lighttpd web server: Element Web at /element/ and Synapse-Admin at /admin/. Can be accessed directly on the LAN or exposed via NPM."
+          Description="Serves Element Web (/element/), Synapse-Admin (/admin/) and /.well-known/matrix/* endpoints."
           Type="Port" Display="always" Required="true" Mask="false">8080</Config>
 
   <Config Name="TURN TCP" Target="3478" Default="3478" Mode="tcp"
-          Description="coturn TURN/STUN over TCP. Required for voice and video calls. This port must be opened in your router/firewall."
+          Description="TURN/STUN over TCP for voice/video calls. Open this port in your router/firewall."
           Type="Port" Display="always" Required="true" Mask="false">3478</Config>
 
   <Config Name="TURN UDP" Target="3478" Default="3478" Mode="udp"
-          Description="coturn TURN/STUN over UDP. Required for voice and video calls. This port must be opened in your router/firewall."
+          Description="TURN/STUN over UDP for voice/video calls. Open this port in your router/firewall."
           Type="Port" Display="always" Required="true" Mask="false">3478</Config>
 
   <Config Name="TURN TLS TCP" Target="5349" Default="5349" Mode="tcp"
-          Description="coturn TURN over TLS (TCP). Optional — only needed if TLS certificates are configured for coturn."
+          Description="TURN over TLS (TCP). Optional — only if TLS certs are mounted."
           Type="Port" Display="advanced-hide" Required="false" Mask="false">5349</Config>
 
   <Config Name="TURN TLS UDP" Target="5349" Default="5349" Mode="udp"
-          Description="coturn TURN over TLS (UDP). Optional — only needed if TLS certificates are configured for coturn."
+          Description="TURN over TLS (UDP). Optional — only if TLS certs are mounted."
           Type="Port" Display="advanced-hide" Required="false" Mask="false">5349</Config>
 
   <Config Name="Prometheus Metrics" Target="9090" Default="9090" Mode="tcp"
-          Description="Prometheus metrics endpoint at /_synapse/metrics. Bind to a private network only — these metrics expose internal Synapse state."
+          Description="Prometheus metrics at /_synapse/metrics. Bind to a private network only."
           Type="Port" Display="advanced" Required="false" Mask="false">9090</Config>
 
   <!-- =========================================================
@@ -86,11 +80,11 @@
        ========================================================= -->
 
   <Config Name="Data Directory" Target="/data" Default="/mnt/user/appdata/matrix/"
-          Description="Persistent data directory. Contains homeserver.yaml, media files, signing keys, and database connection info. NEVER delete this — doing so will destroy all signing keys and break federation."
+          Description="Persistent data: homeserver.yaml, media, signing keys. Never delete — destroys keys and breaks federation."
           Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/matrix/</Config>
 
   <Config Name="TURN-TLS Certs" Target="/data/certs" Default="" Mode="ro"
-          Description="Optional. Mount your TLS cert directory here (must contain fullchain.pem and privkey.pem) to enable TURN over TLS on port 5349. If left empty, plain TURN on port 3478 still works."
+          Description="Optional. Mount a folder containing fullchain.pem + privkey.pem to enable TURN-TLS on 5349."
           Type="Path" Display="advanced" Required="false" Mask="false"/>
 
   <!-- =========================================================
@@ -98,35 +92,35 @@
        ========================================================= -->
 
   <Config Name="Matrix Server Domain" Target="SERVER_NAME" Default=""
-          Description="The Matrix domain of your homeserver, e.g. matrix.yourdomain.tld. This domain is used for Matrix IDs (@user:matrix.yourdomain.tld) and CANNOT BE CHANGED LATER without dropping the database."
+          Description="Your Matrix domain, e.g. matrix.yourdomain.tld. Used in Matrix IDs (@user:matrix.yourdomain.tld). Cannot be changed later without wiping the DB."
           Type="Variable" Display="always" Required="true" Mask="false">matrix.yourdomain.tld</Config>
 
   <Config Name="Anonymous Usage Reporting" Target="REPORT_STATS" Default="no"
-          Description="Send anonymous usage statistics to Matrix.org? 'yes' or 'no'. Recommended: 'no' for home servers."
+          Description="Send anonymous usage stats to Matrix.org. 'yes' or 'no'. Recommended: no."
           Type="Variable" Display="always" Required="true" Mask="false">no</Config>
 
   <Config Name="Enable Federation" Target="ENABLE_FEDERATION" Default="true"
-          Description="true = federate with the public Matrix network (chat with @user:matrix.org etc.) — requires a /.well-known/matrix/server entry on your reverse proxy (see README § Federation). false = run as a private island, no external Matrix communication possible."
+          Description="true = chat with the public Matrix network (requires /.well-known/matrix/* on your proxy, see README). false = private island."
           Type="Variable" Display="always" Required="true" Mask="false">true</Config>
 
   <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="192.168.x.x"
-          Description="IP address of your PostgreSQL server. Use the Unraid host IP (e.g. 192.168.1.10) plus the host port your Postgres container exposes. Container names work too, but only when both containers share the same custom Docker network — IP+port is more reliable."
+          Description="IP of your PostgreSQL server (e.g. Unraid host IP). IP+port is more reliable than container names."
           Type="Variable" Display="always" Required="true" Mask="false">192.168.x.x</Config>
 
   <Config Name="PostgreSQL Port" Target="POSTGRES_PORT" Default="5432"
-          Description="PostgreSQL port. Default is 5432. Change this only if PostgreSQL is running on a different port (e.g. when running multiple Postgres containers side by side)."
+          Description="PostgreSQL port. Default 5432."
           Type="Variable" Display="always" Required="true" Mask="false">5432</Config>
 
   <Config Name="PostgreSQL Username" Target="POSTGRES_USER" Default="admin"
-          Description="PostgreSQL username for Synapse. Must already exist in PostgreSQL (see README — Setting Up PostgreSQL)."
+          Description="Postgres user for Synapse. Must already exist (see README — Postgres setup)."
           Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
 
   <Config Name="PostgreSQL Password" Target="POSTGRES_PASSWORD" Default=""
-          Description="Password for the PostgreSQL Synapse user. Treated securely as a Docker secret."
+          Description="Password for the Postgres user above."
           Type="Variable" Display="always" Required="true" Mask="true"/>
 
   <Config Name="PostgreSQL Database" Target="POSTGRES_DB" Default="matrix"
-          Description="Name of the PostgreSQL database for Synapse. Must have been created with ENCODING UTF8, LC_COLLATE='C', LC_CTYPE='C' — otherwise Synapse will not start."
+          Description="Synapse database name. Must be created with ENCODING UTF8, LC_COLLATE='C', LC_CTYPE='C' — see Overview."
           Type="Variable" Display="always" Required="true" Mask="false">matrix</Config>
 
   <!-- =========================================================
@@ -138,11 +132,11 @@
        ========================================================= -->
 
   <Config Name="Matrix Admin Username (Element / Synapse-Admin login)" Target="ADMIN_USER" Default=""
-          Description="Optional. Localpart of the Matrix admin account to auto-create on first boot, e.g. 'admin' becomes @admin:SERVER_NAME. This user has full administrative rights on the homeserver and is used to sign in to Element Web and Synapse-Admin. Leave empty after the user has been created."
+          Description="Optional. Localpart of the admin user to auto-create on first boot (e.g. 'admin' → @admin:SERVER_NAME). Logs into Element Web + Synapse-Admin. Clear after creation."
           Type="Variable" Display="always" Required="false" Mask="false"/>
 
   <Config Name="Matrix Admin Password (Element / Synapse-Admin login)" Target="ADMIN_PASSWORD" Default=""
-          Description="Optional. Password for the auto-created Matrix admin account. Used together with the username above to sign in to Element Web and Synapse-Admin. After the admin user has been created on first boot you can safely clear this value."
+          Description="Optional. Password for the admin user above. Clear after first boot."
           Type="Variable" Display="always" Required="false" Mask="true"/>
 
   <!-- =========================================================
@@ -150,15 +144,15 @@
        ========================================================= -->
 
   <Config Name="Timezone" Target="TZ" Default="Europe/Vienna"
-          Description="Container timezone, e.g. Europe/Vienna, Europe/Berlin, Europe/Zurich. Affects timestamps in logs."
+          Description="Container timezone (affects log timestamps)."
           Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Vienna</Config>
 
   <Config Name="User ID (PUID)" Target="PUID" Default="99"
-          Description="User ID that Synapse runs as. Default: 99 (nobody on Unraid). Only change this if you encounter permission issues."
+          Description="UID Synapse runs as. Default 99 (nobody on Unraid)."
           Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
 
   <Config Name="Group ID (PGID)" Target="PGID" Default="100"
-          Description="Group ID that Synapse runs as. Default: 100 (users on Unraid). Only change this if you encounter permission issues."
+          Description="GID Synapse runs as. Default 100 (users on Unraid)."
           Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
 
 </Container>
