@@ -162,9 +162,9 @@ fi
 #       - media_store_path / uploads_path are absolute under /data so Synapse
 #         never tries to mkdir them inside the read-only s6 service dir.
 # =============================================================================
-log_info "Ensuring homeserver.yaml has absolute media paths and correct listeners ..."
+log_info "Ensuring homeserver.yaml + log.config use absolute paths ..."
 python3 - <<'PYEOF'
-import yaml
+import os, yaml, glob
 
 cfg_path = "/data/homeserver.yaml"
 with open(cfg_path, "r") as fh:
@@ -172,7 +172,7 @@ with open(cfg_path, "r") as fh:
 
 changed = False
 
-# Listeners — bind to 0.0.0.0, enable x_forwarded, disable TLS
+# --- 1) Listeners: 0.0.0.0 + x_forwarded + tls=false (NPM in front) ---
 for listener in cfg.get("listeners", []):
     if listener.get("port") == 8008:
         if listener.get("bind_addresses") != ["0.0.0.0"]:
@@ -182,20 +182,73 @@ for listener in cfg.get("listeners", []):
         if listener.get("tls"):
             listener["tls"] = False; changed = True
 
-# Anchor media + upload paths absolutely under /data
+# --- 2) Absolute media + uploads paths ---
 if cfg.get("media_store_path") != "/data/media_store":
     cfg["media_store_path"] = "/data/media_store"; changed = True
 if cfg.get("uploads_path") != "/data/uploads":
     cfg["uploads_path"] = "/data/uploads"; changed = True
+
+# --- 3) signing_key_path / log_config: make absolute under /data ---
+for key in ("signing_key_path", "log_config"):
+    val = cfg.get(key)
+    if isinstance(val, str) and val and not val.startswith("/"):
+        cfg[key] = os.path.join("/data", val); changed = True
 
 if changed:
     with open(cfg_path, "w") as fh:
         yaml.dump(cfg, fh, default_flow_style=False, allow_unicode=True)
     print("[init] homeserver.yaml patched.")
 else:
-    print("[init] homeserver.yaml already correct — no patch needed.")
+    print("[init] homeserver.yaml already correct.")
+
+# --- 4) Patch <SERVER_NAME>.log.config: absolute filename + console handler ---
+# The file Synapse generates uses 'homeserver.log' (relative). We rewrite it
+# to /data/logs/homeserver.log and ALSO add a console handler so logs still
+# show up in 'docker logs'.
+log_cfg_path = cfg.get("log_config")
+if log_cfg_path and os.path.exists(log_cfg_path):
+    with open(log_cfg_path) as fh:
+        lc = yaml.safe_load(fh) or {}
+
+    lc_changed = False
+    handlers = lc.setdefault("handlers", {})
+
+    # Make file handler absolute
+    fh_def = handlers.get("file") or handlers.get("buffer") or {}
+    fname = fh_def.get("filename")
+    if isinstance(fname, str) and not fname.startswith("/"):
+        new_name = "/data/logs/homeserver.log"
+        # locate the actual handler dict (could be 'file' or wrapped 'buffer')
+        for hname, hdef in handlers.items():
+            if isinstance(hdef, dict) and hdef.get("filename") == fname:
+                hdef["filename"] = new_name; lc_changed = True
+        os.makedirs("/data/logs", exist_ok=True)
+
+    # Ensure console handler exists so 'docker logs' keeps working
+    if "console" not in handlers:
+        handlers["console"] = {
+            "class": "logging.StreamHandler",
+            "formatter": "precise",
+        }
+        lc_changed = True
+
+    root = lc.setdefault("root", {})
+    root_handlers = root.get("handlers") or []
+    if "console" not in root_handlers:
+        root_handlers.append("console")
+        root["handlers"] = root_handlers
+        lc_changed = True
+
+    if lc_changed:
+        with open(log_cfg_path, "w") as fh:
+            yaml.dump(lc, fh, default_flow_style=False, allow_unicode=True)
+        print(f"[init] {log_cfg_path} patched (absolute log filename + console handler).")
+    else:
+        print(f"[init] {log_cfg_path} already correct.")
+else:
+    print(f"[init] WARN: log_config path '{log_cfg_path}' not found — skipping log.config patch.")
 PYEOF
-chown "${PUID}:${PGID}" "${HOMESERVER_YAML}"
+chown -R "${PUID}:${PGID}" "${HOMESERVER_YAML}" /data/logs 2>/dev/null || true
 
 # =============================================================================
 # 4. Render homeserver-overrides.yaml from template and apply it
