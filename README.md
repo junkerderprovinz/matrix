@@ -33,16 +33,30 @@ CREATE DATABASE matrix
 Any other locale and Synapse refuses to start. Full details in [section 3](#3-setting-up-postgresql).
 
 **2. Add NPM Advanced config** to your `matrix.yourdomain.tld` proxy host.
-In the proxy host → **Advanced** tab paste:
+NPM → your proxy host → **Edit** → **Advanced** tab → paste this complete block into
+*Custom Nginx Configuration*:
 
 ```nginx
+# Matrix media uploads can be large
 client_max_body_size 100M;
+
+# Long-polling sync needs generous timeouts
 proxy_read_timeout 600s;
 proxy_send_timeout 600s;
+
+# Forward real client IP (matches x_forwarded: true in homeserver.yaml)
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header Host $host;
+
+# WebSocket / HTTP-1.1 upgrade for /_matrix/client/*/sync
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
 ```
 
-Without these, media uploads fail and long-polling Sync requests time out. Full NPM
-config (incl. WebSockets and `X-Forwarded-For`) in [section 4](#4-npm-configuration-nginx-proxy-manager).
+Without these, media uploads fail and Sync requests time out. Details and the
+federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-proxy-manager) and [section 5](#5-enabling-federation).
 
 ---
 
@@ -246,22 +260,22 @@ You need **two proxy hosts** in NPM:
 
 **SSL tab:** Issue a Let's Encrypt certificate → enable Force SSL
 
-**Custom Nginx configuration** (Advanced tab):
+**Custom Nginx configuration** (Advanced tab) — paste as one block:
 
 ```nginx
-# Matrix requires large uploads (media, files)
+# Matrix media uploads can be large
 client_max_body_size 100M;
 
-# WebSocket support for Matrix Sync (long-polling)
+# Long-polling sync needs generous timeouts
 proxy_read_timeout 600s;
 proxy_send_timeout 600s;
 
-# Forward the real client IP (for x_forwarded: true in homeserver.yaml)
+# Forward real client IP (matches x_forwarded: true in homeserver.yaml)
 proxy_set_header X-Forwarded-For $remote_addr;
 proxy_set_header X-Forwarded-Proto $scheme;
-
-# Matrix-specific headers
 proxy_set_header Host $host;
+
+# WebSocket / HTTP-1.1 upgrade for /_matrix/client/*/sync
 proxy_http_version 1.1;
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
