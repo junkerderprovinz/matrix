@@ -105,6 +105,10 @@
           Description="Send anonymous usage statistics to Matrix.org? 'yes' or 'no'. Recommended: 'no' for home servers."
           Type="Variable" Display="always" Required="true" Mask="false">no</Config>
 
+  <Config Name="Enable Federation" Target="ENABLE_FEDERATION" Default="true"
+          Description="true = federate with the public Matrix network (chat with @user:matrix.org etc.) — requires a /.well-known/matrix/server entry on your reverse proxy (see README § Federation). false = run as a private island, no external Matrix communication possible."
+          Type="Variable" Display="always" Required="true" Mask="false">true</Config>
+
   <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="192.168.x.x"
           Description="IP address of your PostgreSQL server. Use the Unraid host IP (e.g. 192.168.1.10) plus the host port your Postgres container exposes. Container names work too, but only when both containers share the same custom Docker network — IP+port is more reliable."
           Type="Variable" Display="always" Required="true" Mask="false">192.168.x.x</Config>
