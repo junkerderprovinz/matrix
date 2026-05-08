@@ -40,7 +40,7 @@
   <Category>Network:Messenger Network:Other Productivity:</Category>
   <WebUI>http://[IP]:[PORT:8080]/element/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/junkerderprovinz/matrix/main/unraid-template.xml</TemplateURL>
-  <Icon>https://element.io/images/logo-mark-primary.svg</Icon>
+  <Icon>https://upload.wikimedia.org/wikipedia/commons/9/95/Matrix_logo.svg</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
