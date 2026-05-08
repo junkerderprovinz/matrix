@@ -201,54 +201,63 @@ if changed:
 else:
     print("[init] homeserver.yaml already correct.")
 
-# --- 4) Patch <SERVER_NAME>.log.config: absolute filename + console handler ---
-# The file Synapse generates uses 'homeserver.log' (relative). We rewrite it
-# to /data/logs/homeserver.log and ALSO add a console handler so logs still
-# show up in 'docker logs'.
-log_cfg_path = cfg.get("log_config")
-if log_cfg_path and os.path.exists(log_cfg_path):
-    with open(log_cfg_path) as fh:
-        lc = yaml.safe_load(fh) or {}
-
-    lc_changed = False
-    handlers = lc.setdefault("handlers", {})
-
-    # Make file handler absolute
-    fh_def = handlers.get("file") or handlers.get("buffer") or {}
-    fname = fh_def.get("filename")
-    if isinstance(fname, str) and not fname.startswith("/"):
-        new_name = "/data/logs/homeserver.log"
-        # locate the actual handler dict (could be 'file' or wrapped 'buffer')
-        for hname, hdef in handlers.items():
-            if isinstance(hdef, dict) and hdef.get("filename") == fname:
-                hdef["filename"] = new_name; lc_changed = True
-        os.makedirs("/data/logs", exist_ok=True)
-
-    # Ensure console handler exists so 'docker logs' keeps working
-    if "console" not in handlers:
-        handlers["console"] = {
+# --- 4) Patch ALL log.config files in /data: console-only logging ---
+# Synapse generates a <SERVER_NAME>.log.config with a rolling FILE handler
+# whose 'filename' is relative (e.g. 'homeserver.log'). With s6, CWD at
+# service start is the read-only s6 service dir, so the file handler explodes.
+#
+# Fix: REPLACE the entire log config with a clean console-only setup. This
+# means logs go to stdout (visible in 'docker logs' / Unraid log viewer) and
+# no file handler is touched at all. We also rewrite the homeserver.yaml's
+# log_config key to point at this clean file.
+os.makedirs("/data/logs", exist_ok=True)
+clean_log_cfg = {
+    "version": 1,
+    "formatters": {
+        "precise": {
+            "format": "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s"
+        }
+    },
+    "filters": {
+        "context": {"()": "synapse.logging.context.LoggingContextFilter", "request": ""}
+    },
+    "handlers": {
+        "console": {
             "class": "logging.StreamHandler",
             "formatter": "precise",
+            "filters": ["context"],
         }
-        lc_changed = True
+    },
+    "loggers": {
+        "synapse.storage.SQL": {"level": "INFO"},
+        "twisted": {"handlers": ["console"], "propagate": False, "level": "INFO"},
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+    "disable_existing_loggers": False,
+}
 
-    root = lc.setdefault("root", {})
-    root_handlers = root.get("handlers") or []
-    if "console" not in root_handlers:
-        root_handlers.append("console")
-        root["handlers"] = root_handlers
-        lc_changed = True
+# Find every existing log.config in /data and replace it. Then point
+# homeserver.yaml's log_config key at the canonical /data/log.config.
+canonical = "/data/log.config"
+with open(canonical, "w") as fh:
+    yaml.dump(clean_log_cfg, fh, default_flow_style=False)
+print(f"[init] wrote canonical clean log config to {canonical}.")
 
-    if lc_changed:
-        with open(log_cfg_path, "w") as fh:
-            yaml.dump(lc, fh, default_flow_style=False, allow_unicode=True)
-        print(f"[init] {log_cfg_path} patched (absolute log filename + console handler).")
-    else:
-        print(f"[init] {log_cfg_path} already correct.")
-else:
-    print(f"[init] WARN: log_config path '{log_cfg_path}' not found — skipping log.config patch.")
+for old_lc in glob.glob("/data/*.log.config"):
+    with open(old_lc, "w") as fh:
+        yaml.dump(clean_log_cfg, fh, default_flow_style=False)
+    print(f"[init] overwrote stale {old_lc} with clean console-only config.")
+
+# Ensure homeserver.yaml uses the canonical path
+with open(cfg_path) as fh:
+    cfg2 = yaml.safe_load(fh) or {}
+if cfg2.get("log_config") != canonical:
+    cfg2["log_config"] = canonical
+    with open(cfg_path, "w") as fh:
+        yaml.dump(cfg2, fh, default_flow_style=False, allow_unicode=True)
+    print(f"[init] homeserver.yaml log_config repointed to {canonical}.")
 PYEOF
-chown -R "${PUID}:${PGID}" "${HOMESERVER_YAML}" /data/logs 2>/dev/null || true
+chown -R "${PUID}:${PGID}" "${HOMESERVER_YAML}" /data/log.config /data/logs 2>/dev/null || true
 
 # =============================================================================
 # 4. Render homeserver-overrides.yaml from template and apply it
