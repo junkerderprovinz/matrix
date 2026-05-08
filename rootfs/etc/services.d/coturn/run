@@ -22,10 +22,13 @@ while [ ! -f "${TURN_CONF}" ]; do
     i=$((i + 1))
 done
 
-# coturn must not be run as root. Drop to nobody (uid 65534) which has no
-# special privileges on the filesystem. coturn will handle its own log output.
-exec gosu 65534:65534 \
-    /usr/bin/turnserver \
-        --config "${TURN_CONF}" \
-        --no-cli \
-        --log-file stdout
+# Run coturn as root so it can open stdout/stderr inherited from s6 and bind
+# privileged ports if needed. coturn drops privileges itself via the
+# proc-user/proc-group directives in turnserver.conf (set to 'nobody').
+# This is the coturn-native way to run as non-root and avoids the
+# 'opening errorlog /dev/stderr failed: Permission denied' issue caused by
+# gosu-dropping before coturn can inherit the supervisor's file descriptors.
+exec /usr/bin/turnserver \
+    --config "${TURN_CONF}" \
+    --no-cli \
+    --simple-log
