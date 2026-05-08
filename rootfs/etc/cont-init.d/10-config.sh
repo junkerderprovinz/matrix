@@ -113,7 +113,7 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
     # under the persistent volume instead of the s6 service directory.
     # Also pass --data-directory explicitly so generate-config writes absolute
     # /data/* paths into homeserver.yaml.
-    cd /data
+    cd /data || exit 1
     gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
         --server-name "${SERVER_NAME}" \
         --config-path "${HOMESERVER_YAML}" \
