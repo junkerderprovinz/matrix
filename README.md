@@ -1,5 +1,9 @@
 # Matrix All-in-One for Unraid
 
+<p align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Matrix_logo.svg/1280px-Matrix_logo.svg.png" alt="Matrix" width="480">
+</p>
+
 [![Build & Push](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml)
 [![Lint](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml)
 [![Image: ghcr.io/junkerderprovinz/matrix](https://img.shields.io/badge/image-ghcr.io%2Fjunkerderprovinz%2Fmatrix-blue)](https://ghcr.io/junkerderprovinz/matrix)
