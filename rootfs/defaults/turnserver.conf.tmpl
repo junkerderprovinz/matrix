@@ -3,15 +3,14 @@
 # Rendered by 10-config.sh via envsubst into /data/turnserver.conf
 #
 # Variables substituted:
-#   ${SERVER_NAME}       — used as realm (TURN realm should match Matrix domain)
-#   ${TURN_SECRET}       — shared secret for time-limited HMAC credentials
-#   ${TURN_TLS_PREFIX}   — set to "" when TLS certs exist, "#" to comment out TLS lines
+#   ${SERVER_NAME}  — used as realm (TURN realm should match Matrix domain)
+#   ${TURN_SECRET}  — shared secret for time-limited HMAC credentials
 # =============================================================================
 
 # --- Network ------------------------------------------------------------------
 # Listen on all interfaces for TURN/STUN traffic.
 listening-port=3478
-${TURN_TLS_PREFIX}tls-listening-port=5349
+tls-listening-port=5349
 
 # Bind to all available interfaces
 listening-ip=0.0.0.0
@@ -49,12 +48,19 @@ denied-peer-ip=100.64.0.0-100.127.255.255
 # IPv6 link-local
 denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
 
-# No CLI management interface (reduces attack surface)
-no-cli
-
 # --- Logging ------------------------------------------------------------------
 # Log to stdout so Docker log driver can capture it.
-log-file=stdout
+# 'syslog' tells coturn to use syslog format on stderr — we override on the
+# command line with --simple-log so logs go to the inherited stdout fd.
+syslog
+
+# --- Privilege drop -----------------------------------------------------------
+# coturn starts as root (so it can open the supervisor's stdout/stderr fds and
+# bind any port), then drops to the 'nobody' user/group itself. This is the
+# coturn-native way of running unprivileged and avoids permission issues with
+# /dev/stderr that arise when dropping privileges via gosu before exec.
+proc-user=nobody
+proc-group=nogroup
 
 # --- Misc ---------------------------------------------------------------------
 # Fingerprint STUN responses for better client compatibility
@@ -75,10 +81,8 @@ total-quota=0
 # Per-user relay quota
 user-quota=0
 
-# --- TURN over TLS (optional) -------------------------------------------------
-# These lines are prefixed with ${TURN_TLS_PREFIX} which is set to "" when
-# fullchain.pem and privkey.pem are present at /data/certs/, or "#" otherwise.
-# Mount your cert directory (containing fullchain.pem + privkey.pem) at /data/certs/
-# to enable TURN-TLS on port 5349. Plain TURN on port 3478 always works.
-${TURN_TLS_PREFIX}cert=/data/certs/fullchain.pem
-${TURN_TLS_PREFIX}pkey=/data/certs/privkey.pem
+# --- TLS (optional) -----------------------------------------------------------
+# Uncomment and set paths to your certificates to enable TURN over TLS (port 5349).
+# The certificates must be accessible inside the container.
+# tls-cert=/data/tls/fullchain.pem
+# tls-pkey=/data/tls/privkey.pem
