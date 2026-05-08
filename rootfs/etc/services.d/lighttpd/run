@@ -1,4 +1,5 @@
 #!/usr/bin/with-contenv sh
+# shellcheck shell=sh
 # =============================================================================
 # s6 service: lighttpd
 # Serves Element Web and Synapse-Admin as static files on port 8080.
