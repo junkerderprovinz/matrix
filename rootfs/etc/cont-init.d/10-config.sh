@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv sh
+#!/command/with-contenv sh
 # shellcheck shell=sh
 # =============================================================================
 # 10-config.sh — Container initialization script
@@ -8,6 +8,9 @@
 # variables (set by 'docker run -e' / Unraid template) are available in this
 # script. Without it, s6-overlay v3 runs cont-init.d scripts with an empty
 # environment and SERVER_NAME, POSTGRES_*, etc. would all appear unset.
+# Note: in s6-overlay v3 the binary lives at /command/with-contenv — the
+# /usr/bin/with-contenv path only exists if the symlinks-noarch tarball is
+# installed, which we do NOT install.
 #
 # Responsibilities:
 #   1. Validate required environment variables
