@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/with-contenv sh
 # =============================================================================
 # s6 service: coturn
 # Starts the coturn TURN/STUN server for Matrix voice/video calls.
