@@ -1,0 +1,79 @@
+#!/command/with-contenv sh
+# shellcheck shell=sh
+# =============================================================================
+# admin-bootstrap/run — one-shot service that creates the admin user
+#
+# Reads /data/.create_admin (written by 10-config.sh when ADMIN_USER and
+# ADMIN_PASSWORD env vars are set), waits for Synapse to be ready on port 8008,
+# then registers the user as admin using register_new_matrix_user.
+#
+# After successful creation, marks /data/.admin_created and removes the
+# temporary credential file. The service then sleeps forever — s6 will not
+# restart it (this is the simplest "run-once" pattern under s6-overlay v3).
+# =============================================================================
+
+set -u
+
+CRED_FILE="/data/.create_admin"
+DONE_FILE="/data/.admin_created"
+
+log() { printf '\033[0;36m[admin-bootstrap] %s\033[0m\n' "$*"; }
+
+# Nothing to do? Sleep forever (s6 keeps service alive but idle)
+if [ ! -f "$CRED_FILE" ]; then
+    log "No credential file present — nothing to do."
+    exec sleep infinity
+fi
+
+# Wait for Synapse to respond on /health (max 120s)
+log "Waiting for Synapse to become ready on http://127.0.0.1:8008/health ..."
+i=0
+while [ $i -lt 60 ]; do
+    if curl -fsS --max-time 2 -o /dev/null "http://127.0.0.1:8008/health" 2>/dev/null; then
+        log "Synapse is ready."
+        break
+    fi
+    i=$((i + 1))
+    sleep 2
+done
+
+if [ $i -ge 60 ]; then
+    log "WARNING: Synapse did not become ready within 120s — aborting admin creation."
+    exec sleep infinity
+fi
+
+# Read credentials
+USER=$(sed -n '1p' "$CRED_FILE")
+PASS=$(sed -n '2p' "$CRED_FILE")
+
+if [ -z "$USER" ] || [ -z "$PASS" ]; then
+    log "ERROR: credentials file is malformed — skipping."
+    rm -f "$CRED_FILE"
+    exec sleep infinity
+fi
+
+log "Registering admin user '$USER' ..."
+if register_new_matrix_user \
+        -c /data/homeserver.yaml \
+        -u "$USER" \
+        -p "$PASS" \
+        -a \
+        http://127.0.0.1:8008 2>&1; then
+    log "Admin user '$USER' created successfully."
+    : > "$DONE_FILE"
+    rm -f "$CRED_FILE"
+else
+    rc=$?
+    if [ $rc -eq 4 ] || [ $rc -eq 1 ]; then
+        # User likely already exists (rc=4) — treat as success and clean up
+        log "User may already exist (rc=$rc) — marking as done."
+        : > "$DONE_FILE"
+        rm -f "$CRED_FILE"
+    else
+        log "ERROR: register_new_matrix_user failed with exit code $rc."
+        log "Leaving credential file in place; will retry on next container restart."
+    fi
+fi
+
+# Service stays alive but idle — s6 considers this "running" so won't restart
+exec sleep infinity
