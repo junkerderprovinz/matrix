@@ -188,8 +188,23 @@ fi
 OVERRIDES_TMPL="/defaults/homeserver-overrides.yaml.tmpl"
 OVERRIDES_OUT="/data/homeserver-overrides.yaml"
 
+# ENABLE_FEDERATION (default 'true'):
+#   true  → federation_domain_whitelist: ~          (allow all = federate with everyone)
+#   false → federation_domain_whitelist: []         (allow none = private island)
+ENABLE_FEDERATION="${ENABLE_FEDERATION:-true}"
+case "${ENABLE_FEDERATION}" in
+    false|False|FALSE|0|no|No|NO)
+        FEDERATION_WHITELIST="[]"
+        log_info "Federation:    DISABLED (homeserver runs as a private island)"
+        ;;
+    *)
+        FEDERATION_WHITELIST="~"
+        log_info "Federation:    enabled"
+        ;;
+esac
+
 log_info "Rendering homeserver-overrides.yaml from template ..."
-export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET
+export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 
