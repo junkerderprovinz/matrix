@@ -1,4 +1,5 @@
 #!/usr/bin/with-contenv sh
+# shellcheck shell=sh
 # =============================================================================
 # 10-config.sh — Container initialization script
 # Runs once at container start (s6-overlay cont-init.d phase, stage 2).
