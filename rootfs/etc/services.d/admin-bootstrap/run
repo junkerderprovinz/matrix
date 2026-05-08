@@ -14,6 +14,11 @@
 
 set -u
 
+# cd into /data — register_new_matrix_user loads homeserver.yaml which
+# triggers Synapse's config validator; relative paths in the config get
+# resolved against CWD, and the s6 service dir is read-only.
+cd /data
+
 CRED_FILE="/data/.create_admin"
 DONE_FILE="/data/.admin_created"
 
