@@ -22,14 +22,13 @@ just enter your domain and database credentials and the container handles the re
 3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
 4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
 5. [Enabling Federation](#5-enabling-federation)
-6. [Federation Auto-Config (well-known)](#6-federation-auto-config-well-known)
-7. [Monitoring (Prometheus)](#7-monitoring-prometheus)
-8. [Adding Bridges](#8-adding-bridges)
-9. [Creating the First Admin User](#9-creating-the-first-admin-user)
-10. [Generating Registration Tokens](#10-generating-registration-tokens)
-11. [Updates](#11-updates)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Contributing / License](#13-contributing--license)
+6. [Monitoring (Prometheus)](#7-monitoring-prometheus)
+7. [Adding Bridges](#8-adding-bridges)
+8. [Creating the First Admin User](#9-creating-the-first-admin-user)
+9. [Generating Registration Tokens](#10-generating-registration-tokens)
+10. [Updates](#11-updates)
+11. [Troubleshooting](#12-troubleshooting)
+12. [Contributing / License](#13-contributing--license)
 
 ---
 
@@ -252,54 +251,41 @@ Element is then available at `https://element.yourdomain.tld/element/`.
 
 ## 5. Enabling Federation
 
-Matrix federation allows you to communicate with users on other servers.
-For this to work, other servers need to be able to discover where your Synapse instance is running.
+Matrix federation lets your users chat with people on other Matrix servers
+(like `@user:matrix.org`). It is **enabled by default** and controlled by the
+`Enable Federation` template variable. Set it to `false` if you want to run
+a private island server instead.
 
-The recommended approach is the `/.well-known/matrix/server` file on your **root domain**
-(not the matrix. subdomain).
+For federation to work, other servers must be able to discover where your
+Synapse runs. This is done via two well-known JSON endpoints that the
+container hosts automatically:
 
-**Example:** If your `SERVER_NAME` is `matrix.yourdomain.tld`, you could instead use
-a cleaner identity like `yourdomain.tld` — but that is more complex to configure.
-For the simplest setup, use `SERVER_NAME = matrix.yourdomain.tld`.
+- `/.well-known/matrix/server` — tells other Matrix servers where to reach you
+- `/.well-known/matrix/client` — tells Matrix clients which homeserver to use
 
-### Testing federation
+Both files are generated on every container start from your `SERVER_NAME` and
+served by the built-in lighttpd on port 8080 — you do not need to write any
+JSON yourself.
 
-After setup, use: [https://federationtester.matrix.org/](https://federationtester.matrix.org/)
+### Reverse-proxy setup (one host, no second proxy needed)
 
-Enter `matrix.yourdomain.tld`. All checks should be green.
+You only need **one proxy host** in NPM — the same one that already proxies
+Synapse on `matrix.yourdomain.tld`. Add two custom locations to it:
 
-**Common federation test errors:**
-
-- `DNS SRV record not found` → Normal when well-known is correctly configured, not a problem
-- `Connection refused` → Port 8448 or 443 not reachable → check firewall/NPM
-- `Certificate error` → SSL certificate not valid for the domain
-
----
-
-## 6. Federation Auto-Config (well-known)
-
-The container now **automatically hosts** the Matrix well-known discovery files via lighttpd on port 8080:
-
-- `/.well-known/matrix/server` — tells other Matrix servers your federation endpoint
-- `/.well-known/matrix/client` — tells Matrix clients your homeserver URL
-
-These files are rendered fresh at every container start from the `SERVER_NAME` environment variable,
-so they always reflect the current configuration without any manual JSON editing.
-
-### Pointing your domain at the well-known endpoints
-
-For federation to work, the well-known files must be served on your **bare domain**
-(`yourdomain.tld`, *not* `matrix.yourdomain.tld`). The easiest way to do this in NPM is to add
-**custom locations** to the proxy host for your bare domain:
-
-**NPM → your bare-domain proxy host → Custom locations tab:**
+**NPM → `matrix.yourdomain.tld` proxy host → Edit → Custom locations tab:**
 
 | Location | Forward Scheme | Forward Host/IP | Forward Port |
 |---|---|---|---|
-| `/.well-known/matrix/server` | `http` | `192.168.1.10` | `8080` |
-| `/.well-known/matrix/client` | `http` | `192.168.1.10` | `8080` |
+| `/.well-known/matrix/server` | `http` | *Unraid IP* | `8080` |
+| `/.well-known/matrix/client` | `http` | *Unraid IP* | `8080` |
 
-NPM custom locations config example (Advanced → Custom Nginx Config):
+That's it. Save and reload NPM.
+
+#### Alternative: paste this into Advanced → Custom Nginx Configuration
+
+If you prefer a single block of config instead of two custom-location entries,
+paste this into the `Advanced → Custom Nginx Configuration` field of the
+`matrix.yourdomain.tld` proxy host (replace `192.168.1.10` with your Unraid IP):
 
 ```nginx
 location /.well-known/matrix/server {
@@ -313,9 +299,31 @@ location /.well-known/matrix/client {
 }
 ```
 
-This **replaces** the manual approach of returning inline JSON from Nginx — the container now
-manages the JSON content and lighttpd serves it with the correct `Content-Type: application/json`
-and `Access-Control-Allow-Origin: *` headers automatically.
+### Verifying
+
+After saving the proxy host, test the endpoints:
+
+```bash
+curl -s https://matrix.yourdomain.tld/.well-known/matrix/server
+# expected: {"m.server": "matrix.yourdomain.tld:443"}
+
+curl -s https://matrix.yourdomain.tld/.well-known/matrix/client
+# expected: {"m.homeserver": {"base_url": "https://matrix.yourdomain.tld"}}
+```
+
+Then run the federation tester:
+
+[https://federationtester.matrix.org/](https://federationtester.matrix.org/)
+
+Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: true`.
+
+**Common errors:**
+
+- `No .well-known found` → the two custom locations above are not active yet
+- `context deadline exceeded` on port 8448 → normal when well-known points to
+  port 443; the tester just falls back to direct 8448. Once well-known is set up,
+  this error becomes irrelevant
+- `Certificate error` → SSL certificate not valid for the domain
 
 ---
 
