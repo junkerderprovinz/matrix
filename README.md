@@ -15,6 +15,37 @@ just enter your domain and database credentials and the container handles the re
 
 ---
 
+## ⚠️ Before You Start — Two Things You Must Do
+
+The container itself is plug-and-play, but two things outside the container must be set up
+correctly or Synapse will not work:
+
+**1. Create the PostgreSQL database with the right locale** (UTF8 + `C` collation).
+In your Postgres container console (`psql -U postgres`):
+
+```sql
+CREATE USER admin WITH PASSWORD 'yoursecretpassword';
+CREATE DATABASE matrix
+    ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C'
+    TEMPLATE template0 OWNER admin;
+```
+
+Any other locale and Synapse refuses to start. Full details in [section 3](#3-setting-up-postgresql).
+
+**2. Add NPM Advanced config** to your `matrix.yourdomain.tld` proxy host.
+In the proxy host → **Advanced** tab paste:
+
+```nginx
+client_max_body_size 100M;
+proxy_read_timeout 600s;
+proxy_send_timeout 600s;
+```
+
+Without these, media uploads fail and long-polling Sync requests time out. Full NPM
+config (incl. WebSockets and `X-Forwarded-For`) in [section 4](#4-npm-configuration-nginx-proxy-manager).
+
+---
+
 ## Table of Contents
 
 1. [What is this?](#1-what-is-this)
@@ -63,8 +94,8 @@ backups, connections, and performance.
 
 ### Step 1 — Create the PostgreSQL database
 
-Before installing the Matrix template, the database must be ready.
-Follow section 3 of this guide.
+Before installing the Matrix template, the database must be ready (UTF8 + `LC_COLLATE='C'`).
+See [section 3](#3-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
 
 ### Step 2 — Install the template
 
@@ -109,7 +140,9 @@ In the template form, you must configure the following fields:
 
 ### Step 5 — Configure NPM
 
-Follow section 4 of this guide to make Synapse accessible over HTTPS.
+Follow [section 4](#4-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
+**Don't forget the Advanced tab** — `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
+are required for media uploads and Sync to work.
 
 ---
 
