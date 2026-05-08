@@ -141,4 +141,12 @@
           Description="Group ID that Synapse runs as. Default: 100 (users on Unraid). Only change this if you encounter permission issues."
           Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
 
+  <Config Name="ADMIN_USER" Target="ADMIN_USER" Default=""
+          Description="Optional. Localpart of an admin account to auto-create on first boot, e.g. 'admin' becomes @admin:SERVER_NAME. Only used once — leave empty after the user has been created. Requires ADMIN_PASSWORD to be set as well."
+          Type="Variable" Display="always" Required="false" Mask="false"/>
+
+  <Config Name="ADMIN_PASSWORD" Target="ADMIN_PASSWORD" Default=""
+          Description="Optional. Password for the auto-created admin account. Only used in combination with ADMIN_USER. After the admin user has been created on first boot you can safely clear this value."
+          Type="Variable" Display="always" Required="false" Mask="true"/>
+
 </Container>
