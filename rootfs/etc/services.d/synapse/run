@@ -19,6 +19,11 @@ PGID="${PGID:-100}"
 export SYNAPSE_SERVER_NAME="${SERVER_NAME}"
 export SYNAPSE_CONFIG_PATH="/data/homeserver.yaml"
 
+# cd into /data so any relative paths Synapse may still resolve at runtime
+# (rare, but defensive) anchor under the persistent volume rather than the
+# read-only s6 service directory under /run/s6-rc:.../
+cd /data
+
 exec gosu "${PUID}:${PGID}" \
     python -m synapse.app.homeserver \
         --config-path /data/homeserver.yaml \
