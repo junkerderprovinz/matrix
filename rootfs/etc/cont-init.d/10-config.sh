@@ -1,7 +1,12 @@
-#!/bin/sh
+#!/usr/bin/with-contenv sh
 # =============================================================================
 # 10-config.sh — Container initialization script
 # Runs once at container start (s6-overlay cont-init.d phase, stage 2).
+#
+# IMPORTANT: the shebang MUST use 'with-contenv' so the container's environment
+# variables (set by 'docker run -e' / Unraid template) are available in this
+# script. Without it, s6-overlay v3 runs cont-init.d scripts with an empty
+# environment and SERVER_NAME, POSTGRES_*, etc. would all appear unset.
 #
 # Responsibilities:
 #   1. Validate required environment variables
