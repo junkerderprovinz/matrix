@@ -108,44 +108,20 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
     # The official Synapse image no longer supports --generate-config on its own
     # startup path. We drive it explicitly here via python -m.
     log_info "Generating initial homeserver.yaml via synapse --generate-config ..."
+    # IMPORTANT: cd into /data so any relative paths Synapse writes into the
+    # generated config (media_store_path, uploads_path, log files) are anchored
+    # under the persistent volume instead of the s6 service directory.
+    # Also pass --data-directory explicitly so generate-config writes absolute
+    # /data/* paths into homeserver.yaml.
+    cd /data
     gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
         --server-name "${SERVER_NAME}" \
         --config-path "${HOMESERVER_YAML}" \
+        --data-directory /data \
         --generate-config \
         --report-stats="${REPORT_STATS}"
 
     log_info "homeserver.yaml generated successfully."
-
-    # -------------------------------------------------------------------------
-    # 3a. Patch listeners: bind to 0.0.0.0 and enable x_forwarded
-    #     The generated file binds to ::1 (IPv6 loopback) by default, which
-    #     makes the port unreachable from the host / reverse proxy.
-    #     We use Python for this surgical YAML patch to avoid corrupting the file.
-    # -------------------------------------------------------------------------
-    log_info "Patching listener bind_addresses and x_forwarded in homeserver.yaml ..."
-    python3 - <<'PYEOF'
-import yaml, sys
-
-cfg_path = "/data/homeserver.yaml"
-with open(cfg_path, "r") as fh:
-    cfg = yaml.safe_load(fh)
-
-listeners = cfg.get("listeners", [])
-for listener in listeners:
-    # Patch the main client-server listener (port 8008)
-    if listener.get("port") == 8008:
-        listener["bind_addresses"] = ["0.0.0.0"]
-        listener["x_forwarded"] = True
-        # Ensure tls is off — TLS termination is handled by the reverse proxy
-        listener["tls"] = False
-
-cfg["listeners"] = listeners
-
-with open(cfg_path, "w") as fh:
-    yaml.dump(cfg, fh, default_flow_style=False, allow_unicode=True)
-
-print("[init] Listener patch applied successfully.")
-PYEOF
 
     # -------------------------------------------------------------------------
     # 3b. Generate a cryptographically random TURN secret (if not provided)
@@ -178,6 +154,48 @@ else
         log_warn "No persisted TURN secret found; generated a new one. Update homeserver.yaml TURN config if needed."
     fi
 fi
+
+# =============================================================================
+# 3c. Idempotent homeserver.yaml patch (runs on EVERY boot)
+#     Guarantees:
+#       - listeners bound to 0.0.0.0 + x_forwarded + tls=false (for NPM)
+#       - media_store_path / uploads_path are absolute under /data so Synapse
+#         never tries to mkdir them inside the read-only s6 service dir.
+# =============================================================================
+log_info "Ensuring homeserver.yaml has absolute media paths and correct listeners ..."
+python3 - <<'PYEOF'
+import yaml
+
+cfg_path = "/data/homeserver.yaml"
+with open(cfg_path, "r") as fh:
+    cfg = yaml.safe_load(fh) or {}
+
+changed = False
+
+# Listeners — bind to 0.0.0.0, enable x_forwarded, disable TLS
+for listener in cfg.get("listeners", []):
+    if listener.get("port") == 8008:
+        if listener.get("bind_addresses") != ["0.0.0.0"]:
+            listener["bind_addresses"] = ["0.0.0.0"]; changed = True
+        if not listener.get("x_forwarded"):
+            listener["x_forwarded"] = True; changed = True
+        if listener.get("tls"):
+            listener["tls"] = False; changed = True
+
+# Anchor media + upload paths absolutely under /data
+if cfg.get("media_store_path") != "/data/media_store":
+    cfg["media_store_path"] = "/data/media_store"; changed = True
+if cfg.get("uploads_path") != "/data/uploads":
+    cfg["uploads_path"] = "/data/uploads"; changed = True
+
+if changed:
+    with open(cfg_path, "w") as fh:
+        yaml.dump(cfg, fh, default_flow_style=False, allow_unicode=True)
+    print("[init] homeserver.yaml patched.")
+else:
+    print("[init] homeserver.yaml already correct — no patch needed.")
+PYEOF
+chown "${PUID}:${PGID}" "${HOMESERVER_YAML}"
 
 # =============================================================================
 # 4. Render homeserver-overrides.yaml from template and apply it
