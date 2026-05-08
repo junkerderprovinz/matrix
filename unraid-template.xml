@@ -97,56 +97,64 @@
        REQUIRED ENVIRONMENT VARIABLES
        ========================================================= -->
 
-  <Config Name="SERVER_NAME" Target="SERVER_NAME" Default=""
+  <Config Name="Matrix Server Domain" Target="SERVER_NAME" Default=""
           Description="The Matrix domain of your homeserver, e.g. matrix.yourdomain.tld. This domain is used for Matrix IDs (@user:matrix.yourdomain.tld) and CANNOT BE CHANGED LATER without dropping the database."
           Type="Variable" Display="always" Required="true" Mask="false">matrix.yourdomain.tld</Config>
 
-  <Config Name="REPORT_STATS" Target="REPORT_STATS" Default="no"
+  <Config Name="Anonymous Usage Reporting" Target="REPORT_STATS" Default="no"
           Description="Send anonymous usage statistics to Matrix.org? 'yes' or 'no'. Recommended: 'no' for home servers."
           Type="Variable" Display="always" Required="true" Mask="false">no</Config>
 
-  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="192.168.x.x"
+  <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="192.168.x.x"
           Description="IP address of your PostgreSQL server. Use the Unraid host IP (e.g. 192.168.1.10) plus the host port your Postgres container exposes. Container names work too, but only when both containers share the same custom Docker network — IP+port is more reliable."
           Type="Variable" Display="always" Required="true" Mask="false">192.168.x.x</Config>
 
-  <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="admin"
+  <Config Name="PostgreSQL Port" Target="POSTGRES_PORT" Default="5432"
+          Description="PostgreSQL port. Default is 5432. Change this only if PostgreSQL is running on a different port (e.g. when running multiple Postgres containers side by side)."
+          Type="Variable" Display="always" Required="true" Mask="false">5432</Config>
+
+  <Config Name="PostgreSQL Username" Target="POSTGRES_USER" Default="admin"
           Description="PostgreSQL username for Synapse. Must already exist in PostgreSQL (see README — Setting Up PostgreSQL)."
           Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
 
-  <Config Name="POSTGRES_PASSWORD" Target="POSTGRES_PASSWORD" Default=""
+  <Config Name="PostgreSQL Password" Target="POSTGRES_PASSWORD" Default=""
           Description="Password for the PostgreSQL Synapse user. Treated securely as a Docker secret."
           Type="Variable" Display="always" Required="true" Mask="true"/>
 
-  <Config Name="POSTGRES_DB" Target="POSTGRES_DB" Default="matrix"
+  <Config Name="PostgreSQL Database" Target="POSTGRES_DB" Default="matrix"
           Description="Name of the PostgreSQL database for Synapse. Must have been created with ENCODING UTF8, LC_COLLATE='C', LC_CTYPE='C' — otherwise Synapse will not start."
           Type="Variable" Display="always" Required="true" Mask="false">matrix</Config>
 
   <!-- =========================================================
-       OPTIONAL / ADVANCED ENVIRONMENT VARIABLES
+       OPTIONAL: AUTO-CREATE ADMIN USER ON FIRST BOOT
+       Set both variables once to have an admin account created
+       automatically on first boot. After the user has been created
+       you can safely clear both fields. The same credentials are
+       used to sign in to Element Web and Synapse-Admin.
        ========================================================= -->
 
-  <Config Name="POSTGRES_PORT" Target="POSTGRES_PORT" Default="5432"
-          Description="PostgreSQL port. Default is 5432. Only change this if PostgreSQL is running on a different port."
-          Type="Variable" Display="advanced" Required="false" Mask="false">5432</Config>
+  <Config Name="Matrix Admin Username (Element / Synapse-Admin login)" Target="ADMIN_USER" Default=""
+          Description="Optional. Localpart of the Matrix admin account to auto-create on first boot, e.g. 'admin' becomes @admin:SERVER_NAME. This user has full administrative rights on the homeserver and is used to sign in to Element Web and Synapse-Admin. Leave empty after the user has been created."
+          Type="Variable" Display="always" Required="false" Mask="false"/>
 
-  <Config Name="TZ" Target="TZ" Default="Europe/Vienna"
+  <Config Name="Matrix Admin Password (Element / Synapse-Admin login)" Target="ADMIN_PASSWORD" Default=""
+          Description="Optional. Password for the auto-created Matrix admin account. Used together with the username above to sign in to Element Web and Synapse-Admin. After the admin user has been created on first boot you can safely clear this value."
+          Type="Variable" Display="always" Required="false" Mask="true"/>
+
+  <!-- =========================================================
+       ADVANCED ENVIRONMENT VARIABLES
+       ========================================================= -->
+
+  <Config Name="Timezone" Target="TZ" Default="Europe/Vienna"
           Description="Container timezone, e.g. Europe/Vienna, Europe/Berlin, Europe/Zurich. Affects timestamps in logs."
           Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Vienna</Config>
 
-  <Config Name="PUID" Target="PUID" Default="99"
+  <Config Name="User ID (PUID)" Target="PUID" Default="99"
           Description="User ID that Synapse runs as. Default: 99 (nobody on Unraid). Only change this if you encounter permission issues."
           Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
 
-  <Config Name="PGID" Target="PGID" Default="100"
+  <Config Name="Group ID (PGID)" Target="PGID" Default="100"
           Description="Group ID that Synapse runs as. Default: 100 (users on Unraid). Only change this if you encounter permission issues."
           Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
-
-  <Config Name="ADMIN_USER" Target="ADMIN_USER" Default=""
-          Description="Optional. Localpart of an admin account to auto-create on first boot, e.g. 'admin' becomes @admin:SERVER_NAME. Only used once — leave empty after the user has been created. Requires ADMIN_PASSWORD to be set as well."
-          Type="Variable" Display="always" Required="false" Mask="false"/>
-
-  <Config Name="ADMIN_PASSWORD" Target="ADMIN_PASSWORD" Default=""
-          Description="Optional. Password for the auto-created admin account. Only used in combination with ADMIN_USER. After the admin user has been created on first boot you can safely clear this value."
-          Type="Variable" Display="always" Required="false" Mask="true"/>
 
 </Container>
