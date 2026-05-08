@@ -230,4 +230,23 @@ for dir in media_store uploads logs; do
     chown "${PUID}:${PGID}" "/data/${dir}"
 done
 
+# =============================================================================
+# 8. Optional: auto-create admin user on first boot
+#    Set ADMIN_USER + ADMIN_PASSWORD in the Unraid template to have an admin
+#    account created automatically. After Synapse is up, the synapse/run script
+#    will pick up /data/.create_admin and register the user, then delete the
+#    marker file. Idempotent: only runs if user does not already exist.
+# =============================================================================
+if [ -n "${ADMIN_USER}" ] && [ -n "${ADMIN_PASSWORD}" ]; then
+    if [ ! -f "/data/.admin_created" ]; then
+        log_info "ADMIN_USER='${ADMIN_USER}' set — will create admin user after Synapse starts."
+        # Write marker file with credentials; consumed by post-start hook
+        umask 077
+        printf '%s\n%s\n' "${ADMIN_USER}" "${ADMIN_PASSWORD}" > /data/.create_admin
+        chown "${PUID}:${PGID}" /data/.create_admin
+    else
+        log_info "Admin user already created on a previous boot — skipping."
+    fi
+fi
+
 log_info "Container initialization complete. Starting services ..."
