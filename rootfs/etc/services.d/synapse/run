@@ -22,7 +22,7 @@ export SYNAPSE_CONFIG_PATH="/data/homeserver.yaml"
 # cd into /data so any relative paths Synapse may still resolve at runtime
 # (rare, but defensive) anchor under the persistent volume rather than the
 # read-only s6 service directory under /run/s6-rc:.../
-cd /data
+cd /data || { echo "[synapse] FATAL: cannot cd into /data" >&2; exit 1; }
 
 exec gosu "${PUID}:${PGID}" \
     python -m synapse.app.homeserver \
