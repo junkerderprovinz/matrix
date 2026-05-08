@@ -30,6 +30,6 @@ done
 # 'opening errorlog /dev/stderr failed: Permission denied' issue caused by
 # gosu-dropping before coturn can inherit the supervisor's file descriptors.
 exec /usr/bin/turnserver \
-    --config "${TURN_CONF}" \
+    -c "${TURN_CONF}" \
     --no-cli \
     --simple-log
