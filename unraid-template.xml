@@ -8,7 +8,7 @@
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/junkerderprovinz/matrix/issues</Support>
-  <Project>https://github.com/junkerderprovinz/matrix</Project>
+  <Project>https://matrix.org</Project>
   <Overview>
     Matrix All-in-One is a plug-and-play Docker image for running your own Matrix homeserver on Unraid.
     It combines all the necessary components in a single container:
@@ -99,15 +99,15 @@
 
   <Config Name="SERVER_NAME" Target="SERVER_NAME" Default=""
           Description="The Matrix domain of your homeserver, e.g. matrix.yourdomain.tld. This domain is used for Matrix IDs (@user:matrix.yourdomain.tld) and CANNOT BE CHANGED LATER without dropping the database."
-          Type="Variable" Display="always" Required="true" Mask="false">matrix.deinedomain.tld</Config>
+          Type="Variable" Display="always" Required="true" Mask="false">matrix.yourdomain.tld</Config>
 
   <Config Name="REPORT_STATS" Target="REPORT_STATS" Default="no"
           Description="Send anonymous usage statistics to Matrix.org? 'yes' or 'no'. Recommended: 'no' for home servers."
           Type="Variable" Display="always" Required="true" Mask="false">no</Config>
 
-  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="192.168.1.10"
+  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="192.168.x.x"
           Description="IP address of your PostgreSQL server. Use the Unraid host IP (e.g. 192.168.1.10) plus the host port your Postgres container exposes. Container names work too, but only when both containers share the same custom Docker network — IP+port is more reliable."
-          Type="Variable" Display="always" Required="true" Mask="false">192.168.1.10</Config>
+          Type="Variable" Display="always" Required="true" Mask="false">192.168.x.x</Config>
 
   <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="admin"
           Description="PostgreSQL username for Synapse. Must already exist in PostgreSQL (see README — Setting Up PostgreSQL)."
