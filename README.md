@@ -395,9 +395,28 @@ Full installation guides for every supported platform:
 ## 9. Creating the First Admin User
 
 After the first run there are no users yet. Since open registration is disabled,
-the first admin user must be created via the command line.
+the first admin user must be created. There are two ways to do this.
 
-### Via the Unraid container console
+### Method 1: Auto-create via template variables (recommended)
+
+The template ships with two optional environment variables:
+
+| Variable         | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `ADMIN_USER`     | Localpart of the admin account, e.g. `admin`     |
+| `ADMIN_PASSWORD` | Password for the auto-created admin account      |
+
+1. Edit the Matrix container in Unraid
+2. Set `ADMIN_USER` and `ADMIN_PASSWORD`
+3. Apply — the container restarts and creates the admin user automatically
+
+On the next boot, after Synapse is ready, the bootstrap service registers the
+user as an admin and writes a marker file (`/data/.admin_created`) so the
+operation is never repeated. **You can safely clear both variables afterwards.**
+
+The resulting Matrix ID is `@<ADMIN_USER>:<SERVER_NAME>`, e.g. `@admin:matrix.yourdomain.tld`.
+
+### Method 2: Manually via the Unraid container console
 
 1. Unraid → **Docker → Matrix → Console**
 2. Run the following command (replace the placeholder values):
