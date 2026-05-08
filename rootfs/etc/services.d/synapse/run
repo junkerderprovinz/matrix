@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/with-contenv sh
 # =============================================================================
 # s6 service: synapse
 # Starts the Synapse Matrix homeserver process.
