@@ -1,13 +1,13 @@
 # Matrix All-in-One for Unraid
 
+<a href="https://matrix.org">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.svg" alt="Matrix" width="100%">
+</a>
+
 [![Build & Push](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml)
 [![Lint](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml/badge.svg)](https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml)
 [![Image: ghcr.io/junkerderprovinz/matrix](https://img.shields.io/badge/image-ghcr.io%2Fjunkerderprovinz%2Fmatrix-blue)](https://ghcr.io/junkerderprovinz/matrix)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
-
-<a href="https://matrix.org">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.svg" alt="Matrix" width="100%">
-</a>
 
 A complete, plug-and-play Docker image for running your own **Matrix homeserver** on Unraid.
 No manual config file editing, no SSH access to the container required —
