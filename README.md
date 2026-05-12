@@ -133,7 +133,7 @@ See [section 3](#3-setting-up-postgresql) for the exact SQL — Synapse will not
 2. Click **Template URLs** in the top right
 3. Paste the following URL:
    ```
-   https://raw.githubusercontent.com/junkerderprovinz/matrix/main/unraid-template.xml
+   https://raw.githubusercontent.com/junkerderprovinz/matrix/main/templates/matrix.xml
    ```
 4. Click **Save**, then select **Matrix** from the template list
 
