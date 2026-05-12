@@ -1,5 +1,3 @@
-# These are supported funding model platforms
+# Funding configuration for GitHub's "Sponsor this project" sidebar
 # https://docs.github.com/sponsors/integrating-with-github-sponsors
-
-github: [junkerderprovinz]
 custom: https://buymeacoffee.com/junkerderprovinz
