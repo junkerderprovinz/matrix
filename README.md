@@ -21,8 +21,6 @@ No manual config file editing, no SSH access to the container required —
 just enter your domain and database credentials and the container handles the rest.
 </p>
 
----
-
 ## ⚠️ Before You Start — Two Things You Must Do
 
 The container itself is plug-and-play, but two things outside the container must be set up
@@ -66,8 +64,6 @@ proxy_set_header Connection "upgrade";
 Without these, media uploads fail and Sync requests time out. Details and the
 federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-proxy-manager) and [section 5](#5-enabling-federation).
 
----
-
 ## Table of Contents
 
 1. [What is this?](#1-what-is-this)
@@ -82,8 +78,6 @@ federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-pr
 10. [Updates](#11-updates)
 11. [Troubleshooting](#12-troubleshooting)
 12. [Contributing / License](#13-contributing--license)
-
----
 
 ## 1. What Is This?
 
@@ -109,8 +103,6 @@ Synapse releases every hour and rebuilds the image automatically.
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
 backups, connections, and performance.
-
----
 
 ## 2. Quick Start on Unraid
 
@@ -165,8 +157,6 @@ In the template form, you must configure the following fields:
 Follow [section 4](#4-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
 **Don't forget the Advanced tab** — `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
 are required for media uploads and Sync to work.
-
----
 
 ## 3. Setting Up PostgreSQL
 
@@ -240,8 +230,6 @@ This avoids "connection refused" errors that often happen when using the contain
 (*Settings → Docker → IPv4 custom network subnet* → enable), start both containers on it,
 and set `POSTGRES_HOST` to the PostgreSQL container name.
 
----
-
 ## 4. NPM Configuration (Nginx Proxy Manager)
 
 Matrix clients require HTTPS. The Matrix container itself does not handle TLS —
@@ -301,8 +289,6 @@ If you want Element Web accessible under its own domain (e.g. `element.yourdomai
 | Forward Port | `8080` |
 
 Element is then available at `https://element.yourdomain.tld/element/`.
-
----
 
 ## 5. Enabling Federation
 
@@ -380,8 +366,6 @@ Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: tru
   this error becomes irrelevant
 - `Certificate error` → SSL certificate not valid for the domain
 
----
-
 ## 7. Monitoring (Prometheus)
 
 The container exposes Synapse's internal **Prometheus metrics** on port **9090**, bound to
@@ -415,8 +399,6 @@ The Synapse project maintains an official Grafana dashboard at:
 
 Import the JSON dashboard into Grafana and point it at your Prometheus datasource to get
 a full view of federation lag, event processing rates, cache hit ratios, and more.
-
----
 
 ## 8. Adding Bridges
 
@@ -452,8 +434,6 @@ The `/data/appservices/` directory on your Unraid host maps to
 
 Full installation guides for every supported platform:
 **[https://docs.mau.fi/bridges/](https://docs.mau.fi/bridges/)**
-
----
 
 ## 9. Creating the First Admin User
 
@@ -508,8 +488,6 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 3. Enter `https://matrix.yourdomain.tld`
 4. Sign in with your username and password
 
----
-
 ## 10. Generating Registration Tokens
 
 Registration tokens let you invite specific users to register without enabling open registration
@@ -552,8 +530,6 @@ registration_requires_token: true
 
 Then restart the container: **Docker → Matrix → Restart**
 
----
-
 ## 11. Updates
 
 ### Automatic image updates (GitHub Actions)
@@ -572,8 +548,6 @@ and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
 
 > Updates do not affect data in `/data` — your homeserver.yaml, media files, and signing keys
 > are preserved. Synapse database migrations run automatically on startup.
-
----
 
 ## 12. Troubleshooting
 
@@ -678,8 +652,6 @@ Then set the **TURN-TLS Certs** path in the Unraid template to `/mnt/user/appdat
 (mapped to `/data/certs` inside the container). If the cert files are missing, plain TURN on
 port 3478 still works — TLS is entirely optional.
 
----
-
 ## 13. Contributing / License
 
 ### Issues & feature requests
@@ -702,6 +674,10 @@ This project is not officially affiliated with Element HQ, the Matrix Foundation
 the Element project. Synapse, Element, and coturn are their respective
 trademarks/projects and are used here unmodified as base images / packages.
 
----
-
 *Built with care for the Unraid community.*
+
+## Support this project
+
+If this template saves you a setup hassle or a debug night, consider buying me a coffee:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/junkerderprovinz)
