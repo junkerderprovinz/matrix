@@ -1,0 +1,110 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard",
+    ":enableVulnerabilityAlertsWithLabel(security)"
+  ],
+  "timezone": "Europe/Vienna",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 6,
+  "packageRules": [
+    {
+      "description": "Synapse upstream — major bumps are breaking, keep manual",
+      "matchPackageNames": ["matrixdotorg/synapse", "element-hq/synapse"],
+      "groupName": "Synapse",
+      "commitMessageTopic": "Synapse",
+      "commitMessagePrefix": "feat:",
+      "labels": ["upstream-bump", "synapse"]
+    },
+    {
+      "description": "Element Web upstream",
+      "matchPackageNames": ["vectorim/element-web"],
+      "groupName": "Element Web",
+      "commitMessageTopic": "Element Web",
+      "commitMessagePrefix": "feat:",
+      "labels": ["upstream-bump", "element"]
+    },
+    {
+      "description": "Synapse-Admin upstream",
+      "matchPackageNames": ["awesometechnologies/synapse-admin", "etkecc/synapse-admin"],
+      "groupName": "Synapse-Admin",
+      "commitMessageTopic": "Synapse-Admin",
+      "commitMessagePrefix": "feat:",
+      "labels": ["upstream-bump", "synapse-admin"]
+    },
+    {
+      "description": "s6-overlay — auto-merge minor/patch (build tool, low risk)",
+      "matchPackageNames": ["just-containers/s6-overlay"],
+      "groupName": "s6-overlay",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "branch",
+      "commitMessagePrefix": "chore:",
+      "labels": ["build-tool"]
+    },
+    {
+      "description": "GitHub Actions: auto-merge minor/patch/digest",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true,
+      "automergeType": "branch",
+      "commitMessagePrefix": "ci:",
+      "labels": ["github-actions"]
+    },
+    {
+      "description": "GitHub Actions major: manual PRs",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "commitMessagePrefix": "ci:",
+      "labels": ["github-actions", "major-update"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track Synapse version from ARG SYNAPSE_VERSION=<tag>",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "ARG SYNAPSE_VERSION=(?<currentValue>v[^\\s]+)"
+      ],
+      "depNameTemplate": "matrixdotorg/synapse",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Track Element Web version from ARG ELEMENT_VERSION=<tag>",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "ARG ELEMENT_VERSION=(?<currentValue>v[^\\s]+)"
+      ],
+      "depNameTemplate": "vectorim/element-web",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Track Synapse-Admin version from ARG SYNAPSE_ADMIN_VERSION=<tag> (GitHub releases)",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "ARG SYNAPSE_ADMIN_VERSION=(?<currentValue>[^\\s]+)"
+      ],
+      "depNameTemplate": "etkecc/synapse-admin",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track s6-overlay version from ARG S6_OVERLAY_VERSION=<tag>",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "ARG S6_OVERLAY_VERSION=(?<currentValue>[^\\s]+)"
+      ],
+      "depNameTemplate": "just-containers/s6-overlay",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    }
+  ]
+}
