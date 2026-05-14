@@ -7,7 +7,7 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/junkerderprovinz/matrix/issues</Support>
+  <Support>https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/</Support>
   <Project>https://matrix.org</Project>
   <Overview>
     All-in-one Matrix homeserver for Unraid: Synapse + coturn + Element Web (/element/) + Synapse-Admin (/admin/).
