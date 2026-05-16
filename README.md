@@ -67,6 +67,7 @@ federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-pr
 ## Table of Contents
 
 1. [What is this?](#1-what-is-this)
+   - [Screenshots](#screenshots)
 2. [Quick Start on Unraid](#2-quick-start-on-unraid)
 3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
 4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
@@ -103,6 +104,25 @@ Synapse releases every hour and rebuilds the image automatically.
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
 backups, connections, and performance.
+
+## Screenshots
+
+Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
+  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
+  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
+  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
+</p>
 
 ## 2. Quick Start on Unraid
 
@@ -680,4 +700,4 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 If this template saves you a setup hassle or a debug night, consider buying me a coffee:
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/junkerderprovinz)
+[<img src=".github/assets/button-buy-me-a-coffee.png" width="220" alt="Buy me a coffee"/>](https://buymeacoffee.com/junkerderprovinz)
