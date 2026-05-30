@@ -1,0 +1,26 @@
+name: Release
+
+# Creates a GitHub Release with auto-generated changelog whenever a semver
+# tag is pushed. The changelog is built from merged PRs and commits since
+# the previous tag (GitHub's built-in release notes generator).
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          make_latest: true
