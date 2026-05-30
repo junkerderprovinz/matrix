@@ -1,9 +1,5 @@
 name: Release
 
-# Creates a GitHub Release with auto-generated changelog whenever a semver
-# tag is pushed. The changelog is built from merged PRs and commits since
-# the previous tag (GitHub's built-in release notes generator).
-
 on:
   push:
     tags: [ 'v*.*.*' ]
@@ -13,13 +9,39 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Create GitHub Release
+      - name: Locate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          FILE=".github/release-notes/${TAG}.md"
+          # If the notes file is not in the tagged commit, fetch it from main
+          if [ ! -f "${FILE}" ]; then
+            git fetch origin main --depth=1 2>/dev/null || true
+            git show origin/main:"${FILE}" > "${FILE}" 2>/dev/null || true
+          fi
+          if [ -f "${FILE}" ] && [ -s "${FILE}" ]; then
+            echo "has_notes=true"  >> "$GITHUB_OUTPUT"
+            echo "notes_file=${FILE}" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_notes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release (manual changelog)
+        if: steps.notes.outputs.has_notes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: ${{ steps.notes.outputs.notes_file }}
+          make_latest: true
+
+      - name: Create release (auto-generated)
+        if: steps.notes.outputs.has_notes == 'false'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
