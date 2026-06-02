@@ -79,7 +79,6 @@ federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-pr
 ## Table of Contents
 
 1. [What is this?](#1-what-is-this)
-   - [Screenshots](#screenshots)
 2. [Quick Start on Unraid](#2-quick-start-on-unraid)
 3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
 4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
@@ -90,8 +89,9 @@ federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-pr
 9. [Generating Registration Tokens](#9-generating-registration-tokens)
 10. [Updates](#10-updates)
 11. [Troubleshooting](#11-troubleshooting)
-12. [Contributing / License](#12-contributing--license)
-13. [Support this project](#13-support-this-project)
+12. [Screenshots](#12-screenshots)
+13. [Contributing / License](#13-contributing--license)
+14. [Support this project](#14-support-this-project)
 
 <br>
 
@@ -119,27 +119,6 @@ Synapse releases every hour and rebuilds the image automatically.
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
 backups, connections, and performance.
-
-<br>
-
-## Screenshots
-
-Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
-  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
-</p>
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
-  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
-</p>
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
-  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
-</p>
 
 <br>
 
@@ -711,7 +690,28 @@ port 3478 still works — TLS is entirely optional.
 
 <br>
 
-## 12. Contributing / License
+## 12. Screenshots
+
+Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
+  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
+  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
+  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
+</p>
+
+<br>
+
+## 13. Contributing / License
 
 ### Issues & feature requests
 
@@ -737,7 +737,7 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 <br>
 
-## 13. Support this project
+## 14. Support this project
 
 If this template saves you a setup hassle or a debug night, consider buying me a coffee:
 
