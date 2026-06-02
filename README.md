@@ -12,14 +12,21 @@
   <a href="https://github.com/element-hq/synapse"><img src="https://img.shields.io/badge/Synapse-homeserver-0dbd8b?style=for-the-badge&logo=matrix&logoColor=white" alt="Synapse" height="36"></a>&nbsp;
   <a href="https://element.io"><img src="https://img.shields.io/badge/Element-web%20client-0dbd8b?style=for-the-badge&logo=element&logoColor=white" alt="Element" height="36"></a>&nbsp;
   <a href="https://unraid.net"><img src="https://img.shields.io/badge/Unraid-Template-f15a2c?style=for-the-badge&logo=unraid&logoColor=white" alt="Unraid" height="36"></a>&nbsp;
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" height="36"></a>&nbsp;
-  <a href="https://buymeacoffee.com/junkerderprovinz"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" height="36"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" height="36"></a>
 </p>
 
 <p align="center">
 A complete, plug-and-play Docker image for running your own <b>Matrix homeserver</b> on Unraid.
 No manual config file editing, no SSH access to the container required —
 just enter your domain and database credentials and the container handles the rest.
+</p>
+
+<br>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/junkerderprovinz">
+    <img src=".github/assets/button-buy-me-a-coffee.svg" alt="Buy me a coffee" width="220">
+  </a>
 </p>
 
 <br>
@@ -77,13 +84,14 @@ federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-pr
 3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
 4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
 5. [Enabling Federation](#5-enabling-federation)
-6. [Monitoring (Prometheus)](#7-monitoring-prometheus)
-7. [Adding Bridges](#8-adding-bridges)
-8. [Creating the First Admin User](#9-creating-the-first-admin-user)
-9. [Generating Registration Tokens](#10-generating-registration-tokens)
-10. [Updates](#11-updates)
-11. [Troubleshooting](#12-troubleshooting)
-12. [Contributing / License](#13-contributing--license)
+6. [Monitoring (Prometheus)](#6-monitoring-prometheus)
+7. [Adding Bridges](#7-adding-bridges)
+8. [Creating the First Admin User](#8-creating-the-first-admin-user)
+9. [Generating Registration Tokens](#9-generating-registration-tokens)
+10. [Updates](#10-updates)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Contributing / License](#12-contributing--license)
+13. [Support this project](#13-support-this-project)
 
 <br>
 
@@ -405,7 +413,7 @@ Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: tru
 
 <br>
 
-## 7. Monitoring (Prometheus)
+## 6. Monitoring (Prometheus)
 
 The container exposes Synapse's internal **Prometheus metrics** on port **9090**, bound to
 `0.0.0.0` so Prometheus can reach them from the host network.
@@ -441,7 +449,7 @@ a full view of federation lag, event processing rates, cache hit ratios, and mor
 
 <br>
 
-## 8. Adding Bridges
+## 7. Adding Bridges
 
 **Bridges** connect your Matrix homeserver to other messaging platforms — WhatsApp, Telegram,
 Signal, Discord, iMessage, and more. They appear as bots in your Matrix rooms and relay
@@ -478,7 +486,7 @@ Full installation guides for every supported platform:
 
 <br>
 
-## 9. Creating the First Admin User
+## 8. Creating the First Admin User
 
 After the first run there are no users yet. Since open registration is disabled,
 the first admin user must be created. There are two ways to do this.
@@ -533,7 +541,7 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 
 <br>
 
-## 10. Generating Registration Tokens
+## 9. Generating Registration Tokens
 
 Registration tokens let you invite specific users to register without enabling open registration
 for everyone.
@@ -577,7 +585,7 @@ Then restart the container: **Docker → Matrix → Restart**
 
 <br>
 
-## 11. Updates
+## 10. Updates
 
 ### Automatic image updates (GitHub Actions)
 
@@ -598,7 +606,7 @@ and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
 
 <br>
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 ### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
@@ -649,7 +657,7 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 
 | Error | Cause | Fix |
 |---|---|---|
-| `No SRV or well-known` | well-known missing | Follow section 6 |
+| `No SRV or well-known` | well-known missing | Follow section 5 |
 | `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
 | `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
 | `Invalid JSON` | well-known config malformed | Restart container to re-render well-known files |
@@ -703,7 +711,7 @@ port 3478 still works — TLS is entirely optional.
 
 <br>
 
-## 13. Contributing / License
+## 12. Contributing / License
 
 ### Issues & feature requests
 
@@ -729,7 +737,7 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 <br>
 
-## Support this project
+## 13. Support this project
 
 If this template saves you a setup hassle or a debug night, consider buying me a coffee:
 

@@ -41,7 +41,7 @@
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Requires>PostgreSQL container with a database: ENCODING UTF8, LC_COLLATE=C, LC_CTYPE=C</Requires>
+  <Requires>An external PostgreSQL database (UTF8, LC_COLLATE=C) and a reverse proxy (e.g. Nginx Proxy Manager) with large-upload and long-timeout settings. See the documentation for the exact setup: https://github.com/junkerderprovinz/matrix#readme</Requires>
 
   <!-- =========================================================
        PORTS
