@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/junkerderprovinz/matrix/build.yml?branch=main&label=Build&style=for-the-badge&logo=githubactions&logoColor=white" alt="Build" height="36"></a>&nbsp;
   <a href="https://github.com/junkerderprovinz/matrix/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/junkerderprovinz/matrix/lint.yml?branch=main&label=Lint&style=for-the-badge&logo=githubactions&logoColor=white" alt="Lint" height="36"></a>&nbsp;
-  <a href="https://github.com/junkerderprovinz/matrix/pkgs/container/matrix"><img src="https://img.shields.io/badge/Image-ghcr.io-1d99f3?style=for-the-badge&logo=docker&logoColor=white" alt="Image" height="36"></a>&nbsp;
+  <a href="https://hub.docker.com/r/junkerderprovinz/matrix"><img src="https://img.shields.io/badge/Image-Docker%20Hub-1d99f3?style=for-the-badge&logo=docker&logoColor=white" alt="Image" height="36"></a>&nbsp;
   <a href="https://github.com/junkerderprovinz/matrix/pkgs/container/matrix"><img src="https://img.shields.io/badge/Arch-amd64%20%7C%20arm64-success?style=for-the-badge&logo=linux&logoColor=white" alt="Arch" height="36"></a>&nbsp;
   <a href="https://github.com/element-hq/synapse"><img src="https://img.shields.io/badge/Synapse-homeserver-0dbd8b?style=for-the-badge&logo=matrix&logoColor=white" alt="Synapse" height="36"></a>&nbsp;
   <a href="https://element.io"><img src="https://img.shields.io/badge/Element-web%20client-0dbd8b?style=for-the-badge&logo=element&logoColor=white" alt="Element" height="36"></a>&nbsp;
@@ -570,7 +570,7 @@ Then restart the container: **Docker → Matrix → Restart**
 
 The GitHub Actions workflow checks **every hour** for a new Synapse release.
 When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
-and pushed to `ghcr.io/junkerderprovinz/matrix:latest`.
+and pushed to `junkerderprovinz/matrix` on Docker Hub (mirrored to `ghcr.io/junkerderprovinz/matrix`).
 
 ### Updating the container on Unraid
 
