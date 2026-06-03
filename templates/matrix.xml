@@ -7,6 +7,7 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
+  <ReadMe>https://github.com/junkerderprovinz/matrix/blob/main/README.md</ReadMe>
   <Support>https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/</Support>
   <Project>https://matrix.org</Project>
   <Overview>
