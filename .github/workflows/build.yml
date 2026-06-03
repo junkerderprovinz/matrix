@@ -7,7 +7,9 @@
 #   - push to main: always builds and pushes latest
 #
 # Output: multi-arch image (linux/amd64, linux/arm64) pushed to
-#         ghcr.io/junkerderprovinz/matrix with tags:
+#         ghcr.io/junkerderprovinz/matrix — and, once the DOCKERHUB_USERNAME
+#         variable + DOCKERHUB_TOKEN secret are set together, mirrored to
+#         docker.io/<DOCKERHUB_USERNAME>/matrix — with tags:
 #           :latest
 #           :v1.x.y       (full Synapse version tag)
 #           :1.x.y        (without leading 'v')
@@ -151,6 +153,17 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # -----------------------------------------------------------------------
+      # Docker Hub mirror — active only once DOCKERHUB_USERNAME (variable) and
+      # DOCKERHUB_TOKEN (secret) are set together; otherwise skipped (GHCR-only).
+      # -----------------------------------------------------------------------
+      - name: Log in to Docker Hub
+        if: steps.check.outputs.skip != 'true' && vars.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
       # Set up QEMU for multi-arch emulation (required for arm64 builds)
       # -----------------------------------------------------------------------
       - name: Set up QEMU
@@ -165,6 +178,31 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # -----------------------------------------------------------------------
+      # Build the tag list: GHCR always, Docker Hub only when mirroring is on.
+      # -----------------------------------------------------------------------
+      - name: Compose image tags
+        id: tags
+        if: steps.check.outputs.skip != 'true'
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          SYN_TAG: ${{ steps.synapse.outputs.tag }}
+          SYN_TAG_BARE: ${{ steps.synapse.outputs.tag_bare }}
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_NAME}:latest"
+            echo "${IMAGE_NAME}:${SYN_TAG}"
+            echo "${IMAGE_NAME}:${SYN_TAG_BARE}"
+            if [ -n "${DOCKERHUB_USERNAME}" ]; then
+              DH="docker.io/${DOCKERHUB_USERNAME}/matrix"
+              echo "${DH}:latest"
+              echo "${DH}:${SYN_TAG}"
+              echo "${DH}:${SYN_TAG_BARE}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
       # Build and push the multi-arch image
       # -----------------------------------------------------------------------
       - name: Build and push
@@ -174,10 +212,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag }}
-            ${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag_bare }}
+          tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
             ELEMENT_VERSION=${{ env.ELEMENT_VERSION }}
@@ -192,6 +227,18 @@ jobs:
             org.opencontainers.image.source=https://github.com/junkerderprovinz/matrix
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}
+
+      # -----------------------------------------------------------------------
+      # Mirror the repo README onto the Docker Hub page (only when mirroring is on).
+      # -----------------------------------------------------------------------
+      - name: Sync README to Docker Hub
+        if: steps.check.outputs.skip != 'true' && vars.DOCKERHUB_USERNAME != ''
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_USERNAME }}/matrix
+          readme-filepath: ./README.md
 
       # -----------------------------------------------------------------------
       # Log a summary for easy visibility in the Actions UI
