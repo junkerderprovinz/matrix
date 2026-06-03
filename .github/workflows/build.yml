@@ -229,18 +229,6 @@ jobs:
             org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}
 
       # -----------------------------------------------------------------------
-      # Mirror the repo README onto the Docker Hub page (only when mirroring is on).
-      # -----------------------------------------------------------------------
-      - name: Sync README to Docker Hub
-        if: steps.check.outputs.skip != 'true' && vars.DOCKERHUB_USERNAME != ''
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ vars.DOCKERHUB_USERNAME }}/matrix
-          readme-filepath: ./README.md
-
-      # -----------------------------------------------------------------------
       # Log a summary for easy visibility in the Actions UI
       # -----------------------------------------------------------------------
       - name: Build summary
