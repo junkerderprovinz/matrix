@@ -1,0 +1,36 @@
+#!/command/with-contenv sh
+# shellcheck shell=sh
+# =============================================================================
+# matrix-ready — print a loud "MATRIX IS READY" banner to the container log once
+# Synapse answers on its health endpoint, so the user knows the (30-60s) first
+# start has finished. House standard, see the vault note "Style Guide - Docker
+# Container" (every own-image container prints an "<APP> IS READY" log banner).
+# =============================================================================
+FLAG=/run/matrix-ready.printed
+
+# /run is tmpfs (wiped on every container start) -> the banner prints once/start.
+if [ -f "$FLAG" ]; then
+    exec sleep infinity
+fi
+
+# Wait until Synapse answers on its health endpoint (same check as HEALTHCHECK).
+# Capped at ~5 min so we never hang forever.
+i=0
+while [ "$i" -lt 150 ]; do
+    if curl -fsS http://127.0.0.1:8008/health >/dev/null 2>&1; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 2
+done
+
+SEP=$(printf '%72s' '' | tr ' ' '#')
+echo ""
+echo "$SEP"
+echo "###  MATRIX IS READY  -  Synapse is serving on port 8008 (point your reverse proxy / Element here)  ###"
+echo "$SEP"
+echo ""
+
+: > "$FLAG"
+# Longrun: stay up so s6 does not restart us and re-print the banner.
+exec sleep infinity
