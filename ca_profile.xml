@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Maintainer>
-  <Icon>https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/icon.png</Icon>
-  <Profile>Plug-and-play Matrix homeserver for Unraid: Synapse + coturn + Element Web + Synapse-Admin in a single self-healing container. Hourly auto-rebuild against the latest upstream Synapse release.</Profile>
-  <WebPage>https://github.com/junkerderprovinz/matrix</WebPage>
-  <Repo>https://github.com/junkerderprovinz/matrix</Repo>
-</Maintainer>
