@@ -7,10 +7,8 @@
 .git/
 .gitignore
 
-# GitHub Actions — not needed inside the image, except the init-log banner art
-# which the Dockerfile COPYs into the image.
+# GitHub Actions — not needed inside the image
 .github/
-!.github/assets/banner-raw.txt
 
 # Documentation — not needed inside the image
 README.md
