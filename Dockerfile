@@ -113,19 +113,11 @@ COPY --from=synapse-admin /app /var/www/html/admin
 # Copy our rootfs overlay (service scripts, config templates, init scripts)
 COPY rootfs/ /
 
-# Init-log banner: single source at .github/assets/banner-raw.txt. Strip Windows
-# CR (tr is byte-safe) so the block characters render cleanly regardless of the
-# editor's line endings.
-COPY .github/assets/banner-raw.txt /usr/local/share/banner-raw.txt
-RUN tr -d '\r' < /usr/local/share/banner-raw.txt > /usr/local/share/banner.txt
-
 # Make all shell scripts executable.
 # cont-init.d scripts: run once at startup (in lexicographic order)
 # services.d/*/run:   executed by s6 as long-running services
-# print-banner.sh lives outside those dirs, so chmod it explicitly.
 RUN find /etc/cont-init.d /etc/services.d \( -name "run" -o -name "*.sh" \) -print0 \
-        | xargs -0 chmod +x \
-    && chmod +x /usr/local/bin/print-banner.sh
+        | xargs -0 chmod +x
 
 # Synapse stores all persistent data here: homeserver.yaml, media, uploads, keys
 VOLUME /data

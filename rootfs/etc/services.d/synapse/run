@@ -24,14 +24,7 @@ export SYNAPSE_CONFIG_PATH="/data/homeserver.yaml"
 # read-only s6 service directory under /run/s6-rc:.../
 cd /data || { echo "[synapse] FATAL: cannot cd into /data" >&2; exit 1; }
 
-# Synapse's --config-path is repeatable (action="append" in its arg parser).
-# We pass homeserver-overrides.yaml as a second config file so its database,
-# OIDC, federation, TURN, etc. settings actually take effect. The previous
-# include_config_files: directive inside homeserver.yaml is NOT a Synapse
-# feature — Synapse silently ignored it, and all the overrides were dead
-# config. See 10-config.sh comments for context.
 exec gosu "${PUID}:${PGID}" \
     python -m synapse.app.homeserver \
         --config-path /data/homeserver.yaml \
-        --config-path /data/homeserver-overrides.yaml \
         --keys-directory /data
