@@ -113,6 +113,12 @@ COPY --from=synapse-admin /app /var/www/html/admin
 # Copy our rootfs overlay (service scripts, config templates, init scripts)
 COPY rootfs/ /
 
+# Init-log banner: single source at .github/assets/banner-raw.txt (the shared
+# Junker-der-Provinz banner; CR stripped so the log shows it cleanly). The
+# cont-init.d/00-banner.sh script prints it once at startup.
+COPY .github/assets/banner-raw.txt /usr/local/share/banner-raw.txt
+RUN tr -d '\r' < /usr/local/share/banner-raw.txt > /usr/local/share/banner.txt
+
 # Make all shell scripts executable.
 # cont-init.d scripts: run once at startup (in lexicographic order)
 # services.d/*/run:   executed by s6 as long-running services
