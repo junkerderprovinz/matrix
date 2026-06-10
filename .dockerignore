@@ -7,8 +7,9 @@
 .git/
 .gitignore
 
-# GitHub Actions — not needed inside the image
-.github/
+# Note: .github/ is intentionally NOT ignored — the init-log banner is sourced
+# from .github/assets/banner-raw.txt (COPYd in the Dockerfile), matching the
+# other own-image repos.
 
 # Documentation — not needed inside the image
 README.md
