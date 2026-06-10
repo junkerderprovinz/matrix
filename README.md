@@ -47,7 +47,7 @@ CREATE DATABASE matrix
     TEMPLATE template0 OWNER admin;
 ```
 
-Any other locale and Synapse refuses to start. Full details in [section 3](#3-setting-up-postgresql).
+Any other locale and Synapse refuses to start. Full details in [section 3](#4-setting-up-postgresql).
 
 **2. Add NPM Advanced config** to your `matrix.yourdomain.tld` proxy host.
 NPM → your proxy host → **Edit** → **Advanced** tab → paste this complete block into
@@ -73,27 +73,26 @@ proxy_set_header Connection "upgrade";
 ```
 
 Without these, media uploads fail and Sync requests time out. Details and the
-federation `well-known` snippet are in [section 4](#4-npm-configuration-nginx-proxy-manager) and [section 5](#5-enabling-federation).
+federation `well-known` snippet are in [section 4](#5-npm-configuration-nginx-proxy-manager) and [section 5](#6-enabling-federation).
 
 <br>
 
 ## Table of Contents
 
-1. [What is this?](#1-what-is-this)
-2. [Quick Start on Unraid](#2-quick-start-on-unraid)
-3. [Setting Up PostgreSQL](#3-setting-up-postgresql)
-4. [NPM Configuration](#4-npm-configuration-nginx-proxy-manager)
-5. [Enabling Federation](#5-enabling-federation)
-6. [Monitoring (Prometheus)](#6-monitoring-prometheus)
-7. [Adding Bridges](#7-adding-bridges)
-8. [Creating the First Admin User](#8-creating-the-first-admin-user)
-9. [Generating Registration Tokens](#9-generating-registration-tokens)
-10. [Updates](#10-updates)
-11. [Troubleshooting](#11-troubleshooting)
-12. [Screenshots](#12-screenshots)
+1. [What Is This?](#1-what-is-this)
+2. [Screenshots](#2-screenshots)
+3. [Quick Start on Unraid](#3-quick-start-on-unraid)
+4. [Setting Up PostgreSQL](#4-setting-up-postgresql)
+5. [NPM Configuration (Nginx Proxy Manager)](#5-npm-configuration-nginx-proxy-manager)
+6. [Enabling Federation](#6-enabling-federation)
+7. [Monitoring (Prometheus)](#7-monitoring-prometheus)
+8. [Adding Bridges](#8-adding-bridges)
+9. [Creating the First Admin User](#9-creating-the-first-admin-user)
+10. [Generating Registration Tokens](#10-generating-registration-tokens)
+11. [Updates](#11-updates)
+12. [Troubleshooting](#12-troubleshooting)
 13. [Contributing / License](#13-contributing--license)
 14. [Support this project](#14-support-this-project)
-
 <br>
 
 ## 1. What Is This?
@@ -123,12 +122,33 @@ backups, connections, and performance.
 
 <br>
 
-## 2. Quick Start on Unraid
+## 2. Screenshots
+
+Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
+  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
+  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
+  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
+</p>
+
+<br>
+
+## 3. Quick Start on Unraid
 
 ### Step 1 — Create the PostgreSQL database
 
 Before installing the Matrix template, the database must be ready (UTF8 + `LC_COLLATE='C'`).
-See [section 3](#3-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
+See [section 3](#4-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
 
 ### Step 2 — Install the template
 
@@ -173,13 +193,13 @@ In the template form, you must configure the following fields:
 
 ### Step 5 — Configure NPM
 
-Follow [section 4](#4-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
+Follow [section 4](#5-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
 **Don't forget the Advanced tab** — `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
 are required for media uploads and Sync to work.
 
 <br>
 
-## 3. Setting Up PostgreSQL
+## 4. Setting Up PostgreSQL
 
 Synapse has **strict requirements** for the PostgreSQL database:
 - Encoding: `UTF8`
@@ -253,7 +273,7 @@ and set `POSTGRES_HOST` to the PostgreSQL container name.
 
 <br>
 
-## 4. NPM Configuration (Nginx Proxy Manager)
+## 5. NPM Configuration (Nginx Proxy Manager)
 
 Matrix clients require HTTPS. The Matrix container itself does not handle TLS —
 that is delegated to Nginx Proxy Manager as the reverse proxy.
@@ -315,7 +335,7 @@ Element is then available at `https://element.yourdomain.tld/element/`.
 
 <br>
 
-## 5. Enabling Federation
+## 6. Enabling Federation
 
 Matrix federation lets your users chat with people on other Matrix servers
 (like `@user:matrix.org`). It is **enabled by default** and controlled by the
@@ -393,7 +413,7 @@ Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: tru
 
 <br>
 
-## 6. Monitoring (Prometheus)
+## 7. Monitoring (Prometheus)
 
 The container exposes Synapse's internal **Prometheus metrics** on port **9090**, bound to
 `0.0.0.0` so Prometheus can reach them from the host network.
@@ -429,7 +449,7 @@ a full view of federation lag, event processing rates, cache hit ratios, and mor
 
 <br>
 
-## 7. Adding Bridges
+## 8. Adding Bridges
 
 **Bridges** connect your Matrix homeserver to other messaging platforms — WhatsApp, Telegram,
 Signal, Discord, iMessage, and more. They appear as bots in your Matrix rooms and relay
@@ -466,7 +486,7 @@ Full installation guides for every supported platform:
 
 <br>
 
-## 8. Creating the First Admin User
+## 9. Creating the First Admin User
 
 After the first run there are no users yet. Since open registration is disabled,
 the first admin user must be created. There are two ways to do this.
@@ -521,7 +541,7 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 
 <br>
 
-## 9. Generating Registration Tokens
+## 10. Generating Registration Tokens
 
 Registration tokens let you invite specific users to register without enabling open registration
 for everyone.
@@ -565,7 +585,7 @@ Then restart the container: **Docker → Matrix → Restart**
 
 <br>
 
-## 10. Updates
+## 11. Updates
 
 ### Automatic image updates (GitHub Actions)
 
@@ -586,7 +606,7 @@ and pushed to `junkerderprovinz/matrix` on Docker Hub (mirrored to `ghcr.io/junk
 
 <br>
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
@@ -688,27 +708,6 @@ cp /mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-1/privkey.pem \
 Then set the **TURN-TLS Certs** path in the Unraid template to `/mnt/user/appdata/matrix/certs`
 (mapped to `/data/certs` inside the container). If the cert files are missing, plain TURN on
 port 3478 still works — TLS is entirely optional.
-
-<br>
-
-## 12. Screenshots
-
-Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
-  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
-</p>
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
-  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
-</p>
-
-<p align="center">
-  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
-  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
-</p>
 
 <br>
 
