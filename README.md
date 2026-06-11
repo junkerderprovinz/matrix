@@ -1,7 +1,7 @@
 ﻿<h1 align="center">Matrix All-in-One for Unraid</h1>
 
 <a href="https://matrix.org">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.svg" alt="Matrix" width="100%">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.png" alt="Matrix" width="100%">
 </a>
 
 <p align="center">
