@@ -203,6 +203,71 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # -----------------------------------------------------------------------
+      # Smoke-test gate (amd64): build the image, boot it against a throwaway
+      # PostgreSQL, and require Synapse's /health to answer before anything is
+      # pushed. A green Docker build only proves the image *builds* — this
+      # proves the container actually *starts* (catches an s6 / config-gen /
+      # Synapse boot crash before :latest, including the hourly auto-builds).
+      # amd64-only on purpose: Synapse's first-run key generation + migrations
+      # are too slow under arm64 QEMU emulation for a CI gate.
+      # -----------------------------------------------------------------------
+      - name: Build amd64 image for smoke test
+        if: steps.check.outputs.skip != 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: matrix:smoke-amd64
+          build-args: |
+            SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
+            ELEMENT_VERSION=${{ env.ELEMENT_VERSION }}
+            SYNAPSE_ADMIN_VERSION=${{ env.SYNAPSE_ADMIN_VERSION }}
+            S6_OVERLAY_VERSION=${{ env.S6_OVERLAY_VERSION }}
+          cache-from: type=gha
+
+      - name: Smoke test — amd64 must boot and serve /health
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          docker network create mx-smoke-net
+          # Synapse requires the database to use the C collation; the stock
+          # postgres image defaults to a libc locale, so pin it via initdb args.
+          docker run -d --name mx-smoke-pg --network mx-smoke-net \
+            -e POSTGRES_USER=synapse -e POSTGRES_PASSWORD=smoke \
+            -e POSTGRES_DB=synapse \
+            -e POSTGRES_INITDB_ARGS="--encoding=UTF-8 --lc-collate=C --lc-ctype=C" \
+            postgres:16-alpine
+          docker run -d --name mx-smoke --network mx-smoke-net -p 8008:8008 \
+            -e SERVER_NAME=smoke.local \
+            -e POSTGRES_HOST=mx-smoke-pg -e POSTGRES_USER=synapse \
+            -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=synapse \
+            matrix:smoke-amd64
+          cleanup() {
+            docker rm -f mx-smoke mx-smoke-pg >/dev/null 2>&1 || true
+            docker network rm mx-smoke-net >/dev/null 2>&1 || true
+          }
+          # First boot generates config + signing keys and runs DB migrations —
+          # give it a generous budget.
+          for i in $(seq 1 180); do
+            if curl -fsS -o /dev/null http://localhost:8008/health; then
+              echo "✅ Synapse /health responded after ${i}s"
+              cleanup
+              exit 0
+            fi
+            if [ -z "$(docker ps -q --filter name=mx-smoke$)" ]; then
+              echo "❌ container exited early — logs:"; docker logs mx-smoke || true
+              cleanup; exit 1
+            fi
+            sleep 1
+          done
+          echo "❌ /health did not respond within 180s — logs:"
+          docker logs mx-smoke || true
+          cleanup
+          exit 1
+
+      # -----------------------------------------------------------------------
       # Build and push the multi-arch image
       # -----------------------------------------------------------------------
       - name: Build and push
