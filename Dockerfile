@@ -135,8 +135,11 @@ VOLUME /data
 #   3478/udp  — coturn TURN/STUN (UDP)
 #   5349/tcp  — coturn TURN over TLS (TCP, optional — requires certs at /data/certs/)
 #   5349/udp  — coturn TURN over TLS (UDP, optional — requires certs at /data/certs/)
+#   49160-49200/udp — coturn media relay range (must match min-port/max-port
+#                     in turnserver.conf.tmpl and the Unraid template)
 #   9090/tcp  — Prometheus metrics endpoint (/_synapse/metrics)
 EXPOSE 8008/tcp 8080/tcp 3478/tcp 3478/udp 5349/tcp 5349/udp 9090/tcp
+EXPOSE 49160-49200/udp
 
 # Health check: Synapse exposes a dedicated /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
