@@ -114,12 +114,21 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
     # Also pass --data-directory explicitly so generate-config writes absolute
     # /data/* paths into homeserver.yaml.
     cd /data || exit 1
-    gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
+    # Guarded: if generation fails we MUST stop here. Continuing would let the
+    # include-append below create a stub homeserver.yaml, which every later
+    # boot mistakes for a real config (generation is skipped when the file
+    # exists) — a permanent crash-loop that is very hard to diagnose.
+    if ! gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
         --server-name "${SERVER_NAME}" \
         --config-path "${HOMESERVER_YAML}" \
         --data-directory /data \
         --generate-config \
-        --report-stats="${REPORT_STATS}"
+        --report-stats="${REPORT_STATS}"; then
+        log_error "synapse --generate-config FAILED — homeserver.yaml was not created."
+        log_error "Halting container start so the broken state is visible. Check the error above"
+        log_error "(SERVER_NAME, /data permissions), fix it and restart the container."
+        exit 1
+    fi
 
     log_info "homeserver.yaml generated successfully."
 
@@ -287,9 +296,13 @@ log_info "Rendering homeserver-overrides.yaml from template ..."
 export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
+# Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
+chmod 600 "${OVERRIDES_OUT}"
 
-# Append include directive to homeserver.yaml if not already present
-if ! grep -q "homeserver-overrides.yaml" "${HOMESERVER_YAML}"; then
+# Append include directive to homeserver.yaml if not already present.
+# Guarded on the real file existing so we never CREATE a stub homeserver.yaml
+# here (a stub would make every later boot skip first-boot generation).
+if [ -f "${HOMESERVER_YAML}" ] && ! grep -q "homeserver-overrides.yaml" "${HOMESERVER_YAML}"; then
     log_info "Adding include_config_files directive to homeserver.yaml ..."
     printf '\n# Injected by container init — do not remove\ninclude_config_files:\n  - /data/homeserver-overrides.yaml\n' \
         >> "${HOMESERVER_YAML}"

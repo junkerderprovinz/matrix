@@ -12,6 +12,11 @@
 listening-port=3478
 tls-listening-port=5349
 
+# Media relay port range — MUST match the published UDP ports (Dockerfile
+# EXPOSE 49160-49200/udp + Unraid template), otherwise relayed calls fail.
+min-port=49160
+max-port=49200
+
 # Bind to all available interfaces
 listening-ip=0.0.0.0
 

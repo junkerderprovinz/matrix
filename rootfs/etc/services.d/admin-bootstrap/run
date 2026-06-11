@@ -58,26 +58,34 @@ if [ -z "$USER" ] || [ -z "$PASS" ]; then
 fi
 
 log "Registering admin user '$USER' ..."
-if register_new_matrix_user \
+out=$(register_new_matrix_user \
         -c /data/homeserver.yaml \
         -u "$USER" \
         -p "$PASS" \
         -a \
-        http://127.0.0.1:8008 2>&1; then
+        http://127.0.0.1:8008 2>&1)
+rc=$?
+[ -n "$out" ] && printf '%s\n' "$out"
+
+if [ $rc -eq 0 ]; then
     log "Admin user '$USER' created successfully."
     : > "$DONE_FILE"
     rm -f "$CRED_FILE"
 else
-    rc=$?
-    if [ $rc -eq 4 ] || [ $rc -eq 1 ]; then
-        # User likely already exists (rc=4) — treat as success and clean up
-        log "User may already exist (rc=$rc) — marking as done."
-        : > "$DONE_FILE"
-        rm -f "$CRED_FILE"
-    else
-        log "ERROR: register_new_matrix_user failed with exit code $rc."
-        log "Leaving credential file in place; will retry on next container restart."
-    fi
+    # Only an explicit "already exists" answer from Synapse counts as done.
+    # Any other non-zero rc (connection refused, wrong registration secret,
+    # ...) must KEEP the credential file so the next restart retries.
+    case "$out" in
+        *"already taken"*|*M_USER_IN_USE*)
+            log "User '$USER' already exists (rc=$rc) — marking as done."
+            : > "$DONE_FILE"
+            rm -f "$CRED_FILE"
+            ;;
+        *)
+            log "ERROR: register_new_matrix_user failed with exit code $rc."
+            log "Leaving credential file in place; will retry on next container restart."
+            ;;
+    esac
 fi
 
 # Service stays alive but idle — s6 considers this "running" so won't restart

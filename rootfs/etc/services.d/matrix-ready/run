@@ -15,9 +15,11 @@ fi
 
 # Wait until Synapse answers on its health endpoint (same check as HEALTHCHECK).
 # Capped at ~5 min so we never hang forever.
+ready=0
 i=0
 while [ "$i" -lt 150 ]; do
     if curl -fsS http://127.0.0.1:8008/health >/dev/null 2>&1; then
+        ready=1
         break
     fi
     i=$((i + 1))
@@ -27,7 +29,11 @@ done
 SEP=$(printf '%72s' '' | tr ' ' '#')
 echo ""
 echo "$SEP"
-echo "###  MATRIX IS READY  -  Synapse is serving on port 8008 (point your reverse proxy / Element here)  ###"
+if [ "$ready" -eq 1 ]; then
+    echo "###  MATRIX IS READY  -  Synapse is serving on port 8008 (point your reverse proxy / Element here)  ###"
+else
+    echo "###  WARNING: MATRIX DID NOT BECOME READY  -  Synapse /health never answered within 5 min, check the log above  ###"
+fi
 echo "$SEP"
 echo ""
 

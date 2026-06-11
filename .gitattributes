@@ -1,3 +1,8 @@
 # Shell scripts + the init banner run on Linux — always store and check out LF.
 *.sh text eol=lf
 .github/assets/banner-raw.txt text eol=lf
+
+# Everything under rootfs/ ships into the Linux image: extensionless s6 service
+# scripts (run), envsubst templates (*.tmpl) and configs. No binaries live here
+# (checked) — pin the whole tree to LF so CRLF checkouts can't break shebangs.
+rootfs/** text eol=lf
