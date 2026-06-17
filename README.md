@@ -162,7 +162,7 @@ See [section 3](#4-setting-up-postgresql) for the exact SQL — Synapse will not
 2. Click **Template URLs** in the top right
 3. Paste the following URL:
    ```
-   https://raw.githubusercontent.com/junkerderprovinz/unraid-docker-templates/main/matrix/matrix.xml
+   https://raw.githubusercontent.com/junkerderprovinz/unraid-apps/main/matrix/matrix.xml
    ```
 4. Click **Save**, then select **Matrix** from the template list
 
