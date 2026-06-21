@@ -45,7 +45,7 @@ CREATE DATABASE matrix
     TEMPLATE template0 OWNER admin;
 ```
 
-Any other locale and Synapse refuses to start. Full details in [section 3](#4-setting-up-postgresql).
+Any other locale and Synapse refuses to start. Full details in [section 4](#4-setting-up-postgresql).
 
 **2. Add NPM Advanced config** to your `matrix.yourdomain.tld` proxy host.
 NPM → your proxy host → **Edit** → **Advanced** tab → paste this complete block into
@@ -146,7 +146,7 @@ Element is the recommended web client for Synapse (separate Unraid template, e.g
 ### Step 1 — Create the PostgreSQL database
 
 Before installing the Matrix template, the database must be ready (UTF8 + `LC_COLLATE='C'`).
-See [section 3](#4-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
+See [section 4](#4-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
 
 ### Step 2 — Install the template
 
