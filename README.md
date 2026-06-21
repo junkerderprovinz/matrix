@@ -71,7 +71,7 @@ proxy_set_header Connection "upgrade";
 ```
 
 Without these, media uploads fail and Sync requests time out. Details and the
-federation `well-known` snippet are in [section 4](#5-npm-configuration-nginx-proxy-manager) and [section 5](#6-enabling-federation).
+federation `well-known` snippet are in [section 5](#5-npm-configuration-nginx-proxy-manager) and [section 6](#6-enabling-federation).
 
 <br>
 
@@ -191,7 +191,7 @@ In the template form, you must configure the following fields:
 
 ### Step 5 — Configure NPM
 
-Follow [section 4](#5-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
+Follow [section 5](#5-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
 **Don't forget the Advanced tab** — `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
 are required for media uploads and Sync to work.
 
@@ -274,11 +274,38 @@ and set `POSTGRES_HOST` to the PostgreSQL container name.
 ## 5. NPM Configuration (Nginx Proxy Manager)
 
 Matrix clients require HTTPS. The Matrix container itself does not handle TLS —
-that is delegated to Nginx Proxy Manager as the reverse proxy.
+that is delegated to a reverse proxy (or a Cloudflare Tunnel).
 
-You need **two proxy hosts** in NPM:
+### 5.1 Access options: reverse proxy vs. Cloudflare Tunnel
 
-### 4.1 Proxy host: Matrix API (matrix.yourdomain.tld)
+There are two ways to reach Matrix from the internet. **Both use the ports this
+template already publishes** (`8008` for Synapse, `8080` for Element / Admin /
+well-known), so **no template change is needed** for either one.
+
+| | Reverse proxy (NPM / Traefik / Caddy) | Cloudflare Tunnel |
+|---|---|---|
+| Open router ports | `443` | none |
+| TLS handled by | the proxy (Let's Encrypt) | Cloudflare's edge |
+| Media upload size | you choose (this README uses `100M`) | hard `100 MB` cap on free/pro plans |
+| Federation | well-known delegation (section 6) | same well-known delegation (section 6) |
+| Voice / video (TURN) | forward the TURN ports | forward the TURN ports (UDP, **not** tunnelable) |
+
+**Recommended:** a reverse proxy, which is what the rest of this section documents.
+A Cloudflare Tunnel is a fine alternative if you would rather not open any ports —
+just keep the 100 MB upload cap in mind and apply the same well-known delegation
+(section 6) so federation works. If you ever put the domain on Cloudflare's regular
+**orange-cloud** proxy instead of a tunnel, switch the Matrix subdomain to **DNS only
+(grey cloud)**: the orange proxy throws bot challenges at non-browser clients and
+breaks federation.
+
+> **Voice / video, either way:** coturn (TURN/STUN) runs over UDP and cannot pass
+> through an HTTP reverse proxy or a Cloudflare Tunnel. For working calls, forward
+> the TURN ports (`3478` plus the relay range) to your Unraid host regardless of
+> which option you pick.
+
+For the reverse-proxy route you need **two proxy hosts** in NPM:
+
+### 5.2 Proxy host: Matrix API (matrix.yourdomain.tld)
 
 **NPM → Hosts → Add Proxy Host**
 
@@ -318,7 +345,7 @@ proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
 ```
 
-### 4.2 Proxy host: Element Web + Admin (optional custom domain)
+### 5.3 Proxy host: Element Web + Admin (optional custom domain)
 
 If you want Element Web accessible under its own domain (e.g. `element.yourdomain.tld`):
 
