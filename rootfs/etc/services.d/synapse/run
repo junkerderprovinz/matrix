@@ -24,7 +24,15 @@ export SYNAPSE_CONFIG_PATH="/data/homeserver.yaml"
 # read-only s6 service directory under /run/s6-rc:.../
 cd /data || { echo "[synapse] FATAL: cannot cd into /data" >&2; exit 1; }
 
+# Synapse's --config-path is repeatable (action="append" in its arg parser), so
+# we pass homeserver-overrides.yaml as a SECOND config file and its database,
+# federation, TURN, etc. settings actually take effect (later file wins).
+# Synapse has NO in-yaml include_config_files directive — it silently ignores it
+# (verified against synapse/config/_base.py), so the overrides MUST be on the
+# command line here. Do not drop this second --config-path: without it Synapse
+# falls back to SQLite and every override is dead config (see issue #3).
 exec gosu "${PUID}:${PGID}" \
     python -m synapse.app.homeserver \
         --config-path /data/homeserver.yaml \
+        --config-path /data/homeserver-overrides.yaml \
         --keys-directory /data
