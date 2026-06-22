@@ -253,6 +253,26 @@ jobs:
           for i in $(seq 1 180); do
             if curl -fsS -o /dev/null http://localhost:8008/health; then
               echo "✅ Synapse /health responded after ${i}s"
+              # Liveness alone is not enough: Synapse answers /health on its SQLite
+              # fallback too. Assert it actually loaded homeserver-overrides.yaml and
+              # is on PostgreSQL — this is exactly the regression that shipped in
+              # v2.1.0/2.1.1 (issue #3), where the override --config-path was dropped
+              # and Synapse silently ran on SQLite with every override dead.
+              if docker exec mx-smoke sh -c '[ -f /data/homeserver.db ]'; then
+                echo "❌ /data/homeserver.db exists — Synapse fell back to SQLite (overrides not loaded)"
+                docker logs mx-smoke || true
+                cleanup; exit 1
+              fi
+              TABLES=$(docker exec -e PGPASSWORD=smoke mx-smoke-pg \
+                psql -h 127.0.0.1 -U synapse -d synapse -tAc \
+                "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" \
+                2>/dev/null | tr -d '[:space:]') || TABLES=""
+              if [ -z "${TABLES}" ] || [ "${TABLES}" = "0" ]; then
+                echo "❌ throwaway PostgreSQL has no Synapse tables — Synapse is not using PostgreSQL"
+                docker logs mx-smoke || true
+                cleanup; exit 1
+              fi
+              echo "✅ Synapse is on PostgreSQL (${TABLES} public tables, no SQLite db)"
               cleanup
               exit 0
             fi
