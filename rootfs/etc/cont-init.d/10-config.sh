@@ -269,10 +269,12 @@ PYEOF
 chown -R "${PUID}:${PGID}" "${HOMESERVER_YAML}" /data/log.config /data/logs 2>/dev/null || true
 
 # =============================================================================
-# 4. Render homeserver-overrides.yaml from template and apply it
-#    The overrides file is written to /data/ so Synapse can read it via
-#    include_config_files. We append the include directive to homeserver.yaml
-#    only once (idempotent).
+# 4. Render homeserver-overrides.yaml from template
+#    The file is loaded by Synapse via a SECOND `--config-path` flag in
+#    /etc/services.d/synapse/run. Synapse has NO in-yaml include_config_files
+#    directive (verified against synapse/config/_base.py: only find_config_files
+#    via -c args / config dirs is honored), so the overrides MUST be passed on
+#    the command line — never via an include directive in homeserver.yaml.
 # =============================================================================
 OVERRIDES_TMPL="/defaults/homeserver-overrides.yaml.tmpl"
 OVERRIDES_OUT="/data/homeserver-overrides.yaml"
@@ -299,13 +301,28 @@ chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
 chmod 600 "${OVERRIDES_OUT}"
 
-# Append include directive to homeserver.yaml if not already present.
-# Guarded on the real file existing so we never CREATE a stub homeserver.yaml
-# here (a stub would make every later boot skip first-boot generation).
-if [ -f "${HOMESERVER_YAML}" ] && ! grep -q "homeserver-overrides.yaml" "${HOMESERVER_YAML}"; then
-    log_info "Adding include_config_files directive to homeserver.yaml ..."
-    printf '\n# Injected by container init — do not remove\ninclude_config_files:\n  - /data/homeserver-overrides.yaml\n' \
-        >> "${HOMESERVER_YAML}"
+# Upgrade cleanup: older builds appended an `include_config_files:` block to
+# homeserver.yaml that did nothing — Synapse never honored it, so those installs
+# silently ran on SQLite at /data/homeserver.db with every override (Postgres,
+# federation, TURN) inert. Strip the stale block so the file matches what Synapse
+# actually reads; the overrides are now loaded via the second `--config-path` in
+# /etc/services.d/synapse/run. Guarded on the real file existing so we never
+# CREATE a stub homeserver.yaml here.
+if [ -f "${HOMESERVER_YAML}" ] && grep -q "^include_config_files:" "${HOMESERVER_YAML}"; then
+    log_warn "Stripping legacy include_config_files block from homeserver.yaml (never honored by Synapse)"
+    sed -i \
+        -e '/^# Injected by container init — do not remove$/d' \
+        -e '/^include_config_files:$/,/^  - \/data\/homeserver-overrides\.yaml$/d' \
+        "${HOMESERVER_YAML}"
+fi
+
+# Warn if a legacy SQLite database is present — it is now orphaned because Synapse
+# will load homeserver-overrides.yaml (which sets database: psycopg2 → Postgres).
+if [ -f "/data/homeserver.db" ]; then
+    log_warn "Found /data/homeserver.db — earlier builds misloaded config, so Synapse may have"
+    log_warn "been writing to SQLite. With the overrides now active, Synapse will use Postgres."
+    log_warn "To keep the SQLite data, stop the container and run synapse_port_db first."
+    log_warn "See: https://element-hq.github.io/synapse/latest/postgres.html#porting-from-sqlite"
 fi
 
 # =============================================================================
