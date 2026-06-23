@@ -74,6 +74,17 @@ REPORT_STATS="${REPORT_STATS:-no}"
 PUID="${PUID:-99}"
 PGID="${PGID:-100}"
 TZ="${TZ:-Europe/Vienna}"
+# TURN: route the relay through a dedicated subdomain / port if you want
+# (defaults to the Matrix domain on 3478).
+TURN_DOMAIN="${TURN_DOMAIN:-$SERVER_NAME}"
+TURN_PORT="${TURN_PORT:-3478}"
+# ENABLE_REGISTRATION drives both Synapse (enable_registration) and Element's
+# "Create Account" button (UIFeature.registration). Normalise to a literal
+# true/false so it is valid in both YAML and JSON.
+case "${ENABLE_REGISTRATION:-false}" in
+    true|True|TRUE|1|yes|Yes|YES) ENABLE_REGISTRATION="true" ;;
+    *)                            ENABLE_REGISTRATION="false" ;;
+esac
 
 log_info "SERVER_NAME    = ${SERVER_NAME}"
 log_info "POSTGRES_HOST  = ${POSTGRES_HOST}:${POSTGRES_PORT}"
@@ -82,6 +93,8 @@ log_info "POSTGRES_USER  = ${POSTGRES_USER}"
 log_info "REPORT_STATS   = ${REPORT_STATS}"
 log_info "TZ             = ${TZ}"
 log_info "PUID/PGID      = ${PUID}/${PGID}"
+log_info "REGISTRATION   = ${ENABLE_REGISTRATION}"
+log_info "TURN_ENDPOINT  = ${TURN_DOMAIN}:${TURN_PORT}"
 
 # Apply timezone if tzdata is installed
 if [ -f "/usr/share/zoneinfo/${TZ}" ]; then
@@ -295,7 +308,7 @@ case "${ENABLE_FEDERATION}" in
 esac
 
 log_info "Rendering homeserver-overrides.yaml from template ..."
-export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST
+export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
@@ -343,7 +356,7 @@ ELEMENT_TMPL="/defaults/element-config.json.tmpl"
 ELEMENT_OUT="/var/www/html/element/config.json"
 
 log_info "Rendering Element Web config.json ..."
-export SERVER_NAME
+export SERVER_NAME ENABLE_REGISTRATION
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
 
 # =============================================================================

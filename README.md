@@ -105,7 +105,7 @@ Matrix homeserver:
 | **coturn** | TURN/STUN server for voice and video calls | 3478, 5349 |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
 | **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
-| **lighttpd** | Lightweight web server for Element, Admin, and well-known | 8080 |
+| **lighttpd** | Lightweight web server for Element Web + Synapse-Admin | 8080 |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **Why a wrapper instead of building from scratch?**
@@ -367,52 +367,29 @@ Matrix federation lets your users chat with people on other Matrix servers
 `Enable Federation` template variable. Set it to `false` if you want to run
 a private island server instead.
 
-For federation to work, other servers must be able to discover where your
-Synapse runs. This is done via two well-known JSON endpoints that the
-container hosts automatically:
+For other servers to find yours, two well-known endpoints must be reachable at
+your domain. **Synapse now serves both itself** (`serve_server_wellknown` +
+`public_baseurl`, set automatically from your `SERVER_NAME`):
 
-- `/.well-known/matrix/server` — tells other Matrix servers where to reach you
+- `/.well-known/matrix/server` — tells other Matrix servers to federate with you over port **443**
 - `/.well-known/matrix/client` — tells Matrix clients which homeserver to use
 
-Both files are generated on every container start from your `SERVER_NAME` and
-served by the built-in lighttpd on port 8080 — you do not need to write any
-JSON yourself.
+### Reverse-proxy setup (nothing extra to configure)
 
-### Reverse-proxy setup (one host, no second proxy needed)
+Because Synapse serves these on the same listener as `/_matrix`, the
+`matrix.yourdomain.tld` proxy host from [section 5.2](#52-proxy-host-matrix-api-matrixyourdomaintld)
+already covers them. There are **no custom `/.well-known/...` locations to add and
+no JSON to write by hand** — just make sure that proxy host forwards `https://
+matrix.yourdomain.tld/` to Synapse (it does by default).
 
-You only need **one proxy host** in NPM — the same one that already proxies
-Synapse on `matrix.yourdomain.tld`. Add two custom locations to it:
-
-**NPM → `matrix.yourdomain.tld` proxy host → Edit → Custom locations tab:**
-
-| Location | Forward Scheme | Forward Host/IP | Forward Port |
-|---|---|---|---|
-| `/.well-known/matrix/server` | `http` | *Unraid IP* | `8080` |
-| `/.well-known/matrix/client` | `http` | *Unraid IP* | `8080` |
-
-That's it. Save and reload NPM.
-
-#### Alternative: paste this into Advanced → Custom Nginx Configuration
-
-If you prefer a single block of config instead of two custom-location entries,
-paste this into the `Advanced → Custom Nginx Configuration` field of the
-`matrix.yourdomain.tld` proxy host (replace `192.168.1.10` with your Unraid IP):
-
-```nginx
-location /.well-known/matrix/server {
-    proxy_pass http://192.168.1.10:8080/.well-known/matrix/server;
-    proxy_set_header Host $host;
-}
-
-location /.well-known/matrix/client {
-    proxy_pass http://192.168.1.10:8080/.well-known/matrix/client;
-    proxy_set_header Host $host;
-}
-```
+> Upgrading from an older build where you added manual `/.well-known/matrix/*`
+> proxy locations (or a `return 200 '{...}'` snippet)? You can remove them — the
+> container handles delegation now. Leaving them in place is harmless but
+> redundant.
 
 ### Verifying
 
-After saving the proxy host, test the endpoints:
+Once the container is up and the proxy host is in place, test the endpoints:
 
 ```bash
 curl -s https://matrix.yourdomain.tld/.well-known/matrix/server

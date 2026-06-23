@@ -130,7 +130,7 @@ VOLUME /data
 
 # Port layout:
 #   8008/tcp  — Synapse Matrix HTTP API (behind reverse proxy)
-#   8080/tcp  — lighttpd: Element Web + Synapse-Admin + well-known endpoints
+#   8080/tcp  — lighttpd: Element Web + Synapse-Admin (well-known is served by Synapse on 8008)
 #   3478/tcp  — coturn TURN/STUN (TCP)
 #   3478/udp  — coturn TURN/STUN (UDP)
 #   5349/tcp  — coturn TURN over TLS (TCP, optional — requires certs at /data/certs/)
