@@ -376,15 +376,17 @@ done
 #    marker file. Idempotent: only runs if user does not already exist.
 # =============================================================================
 if [ -n "${ADMIN_USER}" ] && [ -n "${ADMIN_PASSWORD}" ]; then
-    if [ ! -f "/data/.admin_created" ]; then
-        log_info "ADMIN_USER='${ADMIN_USER}' set — will create admin user after Synapse starts."
-        # Write marker file with credentials; consumed by post-start hook
-        umask 077
-        printf '%s\n%s\n' "${ADMIN_USER}" "${ADMIN_PASSWORD}" > /data/.create_admin
-        chown "${PUID}:${PGID}" /data/.create_admin
-    else
-        log_info "Admin user already created on a previous boot — skipping."
-    fi
+    # Hand the creds to the admin-bootstrap service whenever they are set. The
+    # bootstrap is idempotent: it registers a NEW user, or PROMOTES an existing one
+    # to server admin, then deletes this file. We intentionally do NOT gate on
+    # /data/.admin_created — an account that already existed before ADMIN_USER was
+    # set (e.g. self-registered in Element) would otherwise never get the
+    # server-admin flag that Synapse-Admin requires. Clear ADMIN_USER/ADMIN_PASSWORD
+    # once it has worked so it stops running on every restart.
+    log_info "ADMIN_USER='${ADMIN_USER}' set — admin user will be created/promoted after Synapse starts."
+    umask 077
+    printf '%s\n%s\n' "${ADMIN_USER}" "${ADMIN_PASSWORD}" > /data/.create_admin
+    chown "${PUID}:${PGID}" /data/.create_admin
 fi
 
 log_info "Container initialization complete. Starting services ..."
