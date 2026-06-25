@@ -512,6 +512,13 @@ operation is never repeated. **You can safely clear both variables afterwards.**
 
 The resulting Matrix ID is `@<ADMIN_USER>:<SERVER_NAME>`, e.g. `@admin:matrix.yourdomain.tld`.
 
+> **Already registered that account in Element?** Set `ADMIN_USER`/`ADMIN_PASSWORD` to its
+> name and restart — the bootstrap **promotes the existing account to server admin** (it only
+> sets the admin flag; it won't change the password). This is what **Synapse-Admin** needs: a
+> Synapse *server admin*, which is different from an Element *room* admin. Without it,
+> Synapse-Admin loads but shows **"Server communication error"** because the `/_synapse/admin`
+> API returns 403.
+
 ### Method 2: Manually via the Unraid container console
 
 1. Unraid → **Docker → Matrix → Console**
