@@ -77,9 +77,35 @@ else
     # ...) must KEEP the credential file so the next restart retries.
     case "$out" in
         *"already taken"*|*M_USER_IN_USE*)
-            log "User '$USER' already exists (rc=$rc) — marking as done."
-            : > "$DONE_FILE"
-            rm -f "$CRED_FILE"
+            # register_new_matrix_user -a only sets the server-admin flag when it
+            # CREATES the account; for a pre-existing user (e.g. self-registered in
+            # Element) it does nothing — so the account stays a normal user and
+            # Synapse-Admin fails with "Server communication error" (403 on the
+            # /_synapse/admin API). Promote it directly in Postgres, the documented
+            # way to grant server admin. psycopg2 ships in the Synapse image and the
+            # POSTGRES_* env is already present (with-contenv).
+            log "User '$USER' already exists — ensuring it is a Synapse server admin ..."
+            if python3 - "$USER" <<'PY'
+import os, sys
+import psycopg2
+u = sys.argv[1]
+name = u if u.startswith("@") else "@%s:%s" % (u, os.environ["SERVER_NAME"])
+conn = psycopg2.connect(
+    host=os.environ["POSTGRES_HOST"], port=os.environ.get("POSTGRES_PORT", "5432"),
+    user=os.environ["POSTGRES_USER"], password=os.environ["POSTGRES_PASSWORD"],
+    dbname=os.environ["POSTGRES_DB"])
+cur = conn.cursor()
+cur.execute("UPDATE users SET admin=1 WHERE name=%s", (name,))
+conn.commit()
+print("[admin-bootstrap] admin flag set for %s (rows matched: %d)" % (name, cur.rowcount))
+PY
+            then
+                log "Ensured '$USER' is a server admin (Synapse-Admin will work after re-login)."
+                : > "$DONE_FILE"
+                rm -f "$CRED_FILE"
+            else
+                log "WARNING: could not reach Postgres to promote '$USER' — will retry on next restart."
+            fi
             ;;
         *)
             log "ERROR: register_new_matrix_user failed with exit code $rc."
