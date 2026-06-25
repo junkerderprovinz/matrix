@@ -507,8 +507,9 @@ The template ships with two optional environment variables:
 3. Apply — the container restarts and creates the admin user automatically
 
 On the next boot, after Synapse is ready, the bootstrap service registers the
-user as an admin and writes a marker file (`/data/.admin_created`) so the
-operation is never repeated. **You can safely clear both variables afterwards.**
+user as an admin — or **promotes an existing account to server admin** if that
+username already exists. **Clear both variables afterwards** so it doesn't run
+again on every restart.
 
 The resulting Matrix ID is `@<ADMIN_USER>:<SERVER_NAME>`, e.g. `@admin:matrix.yourdomain.tld`.
 
