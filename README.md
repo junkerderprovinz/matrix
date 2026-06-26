@@ -345,6 +345,14 @@ proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
 ```
 
+> **Using a path-scoped reverse proxy instead (SWAG, Traefik, hand-written nginx)?**
+> The NPM host above forwards the whole subdomain to Synapse, so it covers every
+> endpoint. Path-based configs must forward the **entire `/_synapse` prefix**, not just
+> `/_synapse/client`. A `location ~ ^(/_matrix|/_synapse/client)` block omits
+> `/_synapse/admin`, so Synapse-Admin loads but its data calls return **404** and it
+> shows **"Server communication error"**. Widen it to `^(/_matrix|/_synapse)`. See
+> [Troubleshooting → Synapse-Admin](#synapse-admin-server-communication-error).
+
 ### 5.3 Proxy host: Element Web + Admin (optional custom domain)
 
 If you want Element Web accessible under its own domain (e.g. `element.yourdomain.tld`):
@@ -671,6 +679,35 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 | `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
 | `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
 | `Invalid JSON` | well-known config malformed | Restart container to re-render well-known files |
+
+### Synapse-Admin: "Server communication error"
+
+The Synapse-Admin page loads and you can log in, but the user / room lists stay empty
+and you get a **"Server communication error"**. Open the browser DevTools (`F12`) →
+**Network** tab, reproduce, and check the status of the failing `/_synapse/admin/...`
+request:
+
+| Status | Cause | Fix |
+|---|---|---|
+| **403** | The account is not a Synapse **server admin** (an Element *room* admin is a different thing). | Set `ADMIN_USER` / `ADMIN_PASSWORD` to that account and restart — the bootstrap promotes it (see [section 9](#9-creating-the-first-admin-user)). Or run `UPDATE users SET admin = 1 WHERE name = '@you:yourdomain';` in Postgres and restart. |
+| **404** | Your reverse proxy forwards `/_matrix` and `/_synapse/client` but **not** `/_synapse/admin`. | Forward the **whole** `/_synapse` prefix, not just `/_synapse/client`. |
+
+The 404 trap hits path-scoped configs (SWAG, Traefik, hand-written nginx). A SWAG
+`matrix.subdomain.conf` typically ships with:
+
+```nginx
+location ~ ^(/_matrix|/_synapse/client) {   # ← misses /_synapse/admin
+```
+
+Widen it so the admin API is forwarded too:
+
+```nginx
+location ~ ^(/_matrix|/_synapse) {          # ← covers /_synapse/admin
+```
+
+NPM users following [section 5.2](#52-proxy-host-matrix-api-matrixyourdomaintld) are not
+affected: that proxy host forwards the entire subdomain to Synapse on `8008`, so
+`/_synapse/admin` is already covered.
 
 ### Viewing logs
 
