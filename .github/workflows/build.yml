@@ -339,6 +339,7 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
+          short-description: "Matrix Synapse homeserver plus the Element web client, one container for Unraid."
           enable-url-completion: true
 
       # -----------------------------------------------------------------------

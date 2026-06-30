@@ -125,17 +125,17 @@ backups, connections, and performance.
 Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
 
 <p align="center">
-  <img src=".github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
   <br><em>First login — Element home view served by your own Synapse homeserver.</em>
 </p>
 
 <p align="center">
-  <img src=".github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
   <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
 </p>
 
 <p align="center">
-  <img src=".github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
   <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
 </p>
 
