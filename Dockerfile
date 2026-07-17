@@ -13,7 +13,7 @@
 # in every stage's FROM line. Per stage they still need to be re-declared
 # with `ARG <name>` to be available inside RUN/COPY/etc.
 # -----------------------------------------------------------------------------
-ARG SYNAPSE_VERSION=v1.152.1
+ARG SYNAPSE_VERSION=v1.156.0
 ARG ELEMENT_VERSION=v1.11.92
 ARG SYNAPSE_ADMIN_VERSION=0.10.3
 ARG S6_OVERLAY_VERSION=3.2.0.2
