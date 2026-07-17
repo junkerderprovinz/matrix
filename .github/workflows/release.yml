@@ -35,14 +35,14 @@ jobs:
 
       - name: Create release (manual changelog)
         if: steps.notes.outputs.has_notes == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: ${{ steps.notes.outputs.notes_file }}
           make_latest: true
 
       - name: Create release (auto-generated)
         if: steps.notes.outputs.has_notes == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           make_latest: true
