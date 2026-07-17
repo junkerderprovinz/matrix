@@ -175,7 +175,7 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Set up Docker Buildx
         if: steps.check.outputs.skip != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # -----------------------------------------------------------------------
       # Build the tag list: GHCR always, Docker Hub only when mirroring is on.
