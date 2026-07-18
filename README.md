@@ -774,7 +774,7 @@ PRs are welcome. Please:
 
 ### License
 
-Apache 2.0 — see [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)
 
 This project is not officially affiliated with Element HQ, the Matrix Foundation, or
 the Element project. Synapse, Element, and coturn are their respective
