@@ -46,6 +46,8 @@ on:
 permissions:
   contents: read
   packages: write
+  # Required to upload the Trivy SARIF report to the repo's Security tab
+  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -288,6 +290,32 @@ jobs:
           exit 1
 
       # -----------------------------------------------------------------------
+      # Trivy CVE scan (non-blocking). Scans the locally-loaded amd64 smoke
+      # image built above for HIGH/CRITICAL vulnerabilities and publishes the
+      # findings to the repo's Security tab. Report-only: exit-code stays 0 so
+      # it NEVER fails the build — this is a wrapper that tracks upstream
+      # Synapse/Element/Debian, whose unfixed CVEs are not our regressions to
+      # gate on (ignore-unfixed drops those with no available fix).
+      # -----------------------------------------------------------------------
+      - name: Scan image for CVEs (Trivy)
+        if: steps.check.outputs.skip != 'true'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: matrix:smoke-amd64
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Trivy results to the Security tab
+        if: steps.check.outputs.skip != 'true' && github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      # -----------------------------------------------------------------------
       # Build and push the multi-arch image
       # -----------------------------------------------------------------------
       - name: Build and push
@@ -297,6 +325,12 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          # Supply-chain attestations: attach an SBOM and a provenance record to
+          # the pushed image. Safe here because this is a single build-push (not a
+          # push-by-digest + imagetools manifest merge, which needs digest-mode
+          # handling for attestations).
+          provenance: true
+          sbom: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
