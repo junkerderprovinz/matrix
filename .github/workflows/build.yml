@@ -340,6 +340,10 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
           short-description: "Matrix Synapse homeserver plus the Element web client, one container for Unraid."
+          # The full README exceeds Docker Hub's 25000-byte description limit (it
+          # gets truncated mid-page), so Docker Hub gets a condensed edition that
+          # links back to GitHub for the full docs.
+          readme-filepath: .github/DOCKERHUB.md
           enable-url-completion: true
 
       # -----------------------------------------------------------------------
