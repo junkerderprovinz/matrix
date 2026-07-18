@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.6
+# syntax=docker/dockerfile:1.25
 # =============================================================================
 # Matrix All-in-One — Wrapper around the official Synapse image
 # Adds: coturn (TURN/STUN), Element Web, Synapse-Admin, lighttpd, s6-overlay
@@ -13,9 +13,9 @@
 # in every stage's FROM line. Per stage they still need to be re-declared
 # with `ARG <name>` to be available inside RUN/COPY/etc.
 # -----------------------------------------------------------------------------
-ARG SYNAPSE_VERSION=v1.152.1
-ARG ELEMENT_VERSION=v1.11.92
-ARG SYNAPSE_ADMIN_VERSION=0.10.3
+ARG SYNAPSE_VERSION=v1.156.0
+ARG ELEMENT_VERSION=v1.12.23
+ARG SYNAPSE_ADMIN_VERSION=0.11.4
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
 # -----------------------------------------------------------------------------
