@@ -42,7 +42,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 
 // ---- content + styling -----------------------------------------------------
 const NAME = "matrix"; // lowercase, exactly like the official [matrix] wordmark
-const CLAIM = "Like the big messengers, but you hold the keys.";
+const CLAIM = "Text like nobody's reading. Because nobody can.";
 const NAME_FONT = "C:/Windows/Fonts/arialbd.ttf"; // Arial Bold = Helvetica metric clone
 const W = 1600, H = 500;
 
