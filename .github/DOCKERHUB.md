@@ -24,7 +24,7 @@ A **wrapper around the official Synapse image** from Element (`ghcr.io/element-h
 | Component | Purpose | Port |
 |---|---|---|
 | **Synapse** | Matrix homeserver (core component) | 8008 |
-| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349 |
+| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
 | **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
@@ -74,7 +74,9 @@ proxy_set_header Connection "upgrade";
    | `POSTGRES_PASSWORD` | `yoursecretpassword` | Stored masked |
    | `POSTGRES_DB` | `matrix` | Must exist with the locale settings above |
 
-4. **Apply and check the logs** — after `Container initialization complete` Synapse is ready in 30–60 seconds.
+   Optional extras: `ENABLE_REGISTRATION` (open signup + Element's **Create Account** button, default `false`), `TURN_DOMAIN`/`TURN_PORT` (route TURN through a dedicated subdomain/port), `ADMIN_USER`/`ADMIN_PASSWORD` (first server admin, below).
+
+4. **Apply and check the logs** — a loud `MATRIX IS READY` banner appears after 30–60 seconds once Synapse is serving.
 5. **Point your reverse proxy** (`matrix.yourdomain.tld`, scheme `http`, forward to Unraid-IP:`8008`, WebSockets **enabled**, Let's Encrypt + Force SSL) and paste the Advanced block above. Path-scoped proxies (SWAG/Traefik) must forward the **whole `/_synapse` prefix**, not just `/_synapse/client`, or Synapse-Admin shows "Server communication error".
 
 ## Federation
@@ -94,11 +96,11 @@ Set the optional template variables `ADMIN_USER` + `ADMIN_PASSWORD` and restart 
 
 ## Voice / video calls
 
-coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel — forward port `3478` (TCP+UDP) plus the relay range to your Unraid host either way. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
+coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel — forward port `3478` (TCP+UDP) plus the relay range (`49160-49200/udp`) to your Unraid host either way. `TURN_DOMAIN`/`TURN_PORT` let you route TURN through a dedicated subdomain and/or remapped port. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
 
 ## Updates
 
-The image rebuilds automatically (hourly upstream check) for `linux/amd64` + `linux/arm64`. On Unraid just click **Update** when it appears — `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
+The image rebuilds automatically (hourly upstream check) for `linux/amd64` + `linux/arm64`. Every rebuild must pass a **boot smoke test** against a real PostgreSQL (no silent SQLite fallback) before `:latest` ships, gets a Trivy CVE scan, and carries SBOM + provenance attestations. On Unraid just click **Update** when it appears — `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
 
 ## Full documentation & support
 
