@@ -105,7 +105,7 @@ Matrix homeserver:
 | Component | Purpose | Port |
 |---|---|---|
 | **Synapse** | Matrix homeserver (core component) | 8008 |
-| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349 |
+| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
 | **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
 | **lighttpd** | Lightweight web server for Element Web + Synapse-Admin | 8080 |
@@ -115,7 +115,10 @@ Matrix homeserver:
 The official Synapse image receives security patches immediately and is tested against every new
 Synapse release. We build *on top of it* rather than alongside it — meaning: always up to date,
 without maintaining our own Synapse build pipeline. The GitHub Actions workflow checks for new
-Synapse releases every hour and rebuilds the image automatically.
+Synapse releases every hour and rebuilds the image automatically — and no build ships blind:
+before `:latest` is published, CI boots the freshly built image against a throwaway PostgreSQL
+and refuses to release it unless Synapse is demonstrably running on that database (a silent
+SQLite fallback fails the build). Details in [section 11](#11-updates).
 
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
@@ -125,7 +128,8 @@ backups, connections, and performance.
 
 ## 2. Screenshots
 
-Element is the recommended web client for Synapse (separate Unraid template, e.g. LSIO's `element-web`).
+Element Web ships **inside this image** — no separate container needed. It is served at
+`http://UNRAID-IP:8080/element/` (signing in is covered in [section 9](#9-creating-the-first-admin-user)).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
@@ -185,12 +189,21 @@ In the template form, you must configure the following fields:
 > `@username:SERVER_NAME`. This setting **cannot be changed after the first run** without dropping
 > the entire database.
 
+Everything else has sensible defaults. The most useful optional variables:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `ENABLE_REGISTRATION` | `false` | Open self-service signup + Element's **Create Account** button. Leave it off unless you enjoy spam signups — [section 10](#10-generating-registration-tokens) has the token-based alternative. |
+| `TURN_DOMAIN` / `TURN_PORT` | `SERVER_NAME` / `3478` | Route voice/video (TURN) through a dedicated subdomain and/or a remapped port — e.g. to take coturn around your reverse proxy. |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | — | Auto-create the first server admin (or promote an existing account) on the next start — see [section 9](#9-creating-the-first-admin-user). |
+
 ### Step 4 — Start the container and check the logs
 
 1. Click **Apply** → the container starts
 2. In Unraid, open: **Docker → Matrix → Logs**
 3. You should see: `[init] INFO: Container initialization complete. Starting services ...`
-4. After approximately 30–60 seconds, Synapse is ready
+4. After approximately 30–60 seconds a loud `MATRIX IS READY` banner appears in the log —
+   Synapse is now serving on port 8008
 
 ### Step 5 — Configure NPM
 
@@ -418,7 +431,8 @@ Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: tru
 
 **Common errors:**
 
-- `No .well-known found` → the two custom locations above are not active yet
+- `No .well-known found` → the `matrix.yourdomain.tld` proxy host is not forwarding `/` to
+  Synapse yet — Synapse serves the well-known endpoints itself, there are no custom locations to add
 - `context deadline exceeded` on port 8448 → normal when well-known points to
   port 443; the tester just falls back to direct 8448. Once well-known is set up,
   this error becomes irrelevant
@@ -567,6 +581,10 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 Registration tokens let you invite specific users to register without enabling open registration
 for everyone.
 
+> **Want fully open signup instead?** Set the `ENABLE_REGISTRATION` template variable to `true` —
+> Element then shows its **Create Account** button and anyone can register. It defaults to `false`
+> and should stay off unless you have a CAPTCHA in front of it or run on a trusted network.
+
 ### Method 1: Synapse-Admin (recommended)
 
 1. Open `http://UNRAID-IP:8080/admin/`
@@ -613,6 +631,14 @@ Then restart the container: **Docker → Matrix → Restart**
 The GitHub Actions workflow checks **every hour** for a new Synapse release.
 When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
 and pushed to `junkerderprovinz/matrix` on Docker Hub (mirrored to `ghcr.io/junkerderprovinz/matrix`).
+
+Nothing is published blind — every rebuild must pass a **boot smoke-test gate** first:
+
+- CI boots the freshly built image against a throwaway PostgreSQL and waits for `/health`
+- It then asserts Synapse is **actually using PostgreSQL** — a silent SQLite fallback
+  fails the build, so the issue #3 regression class can never ship again
+- Every build also gets a **Trivy CVE scan** (results land in the repo's Security tab),
+  and published images carry **SBOM + provenance attestations**
 
 ### Updating the container on Unraid
 
@@ -678,10 +704,10 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 
 | Error | Cause | Fix |
 |---|---|---|
-| `No SRV or well-known` | well-known missing | Follow section 5 |
+| `No SRV or well-known` | Proxy host not forwarding `/` to Synapse | Follow [section 6](#6-enabling-federation) — Synapse serves well-known itself |
 | `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
 | `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
-| `Invalid JSON` | well-known config malformed | Restart container to re-render well-known files |
+| `Invalid JSON` | Stale hand-written `/.well-known` proxy locations | Remove them — Synapse serves the JSON itself ([section 6](#6-enabling-federation)) |
 
 ### Synapse-Admin: "Server communication error"
 
@@ -729,8 +755,10 @@ tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 
 ### TURN/video calls not working
 
-1. Open ports 3478 (TCP+UDP) in your router and forward them to the Unraid IP
-2. Verify that `turn_uris` is correctly set in `homeserver.yaml` (this happens automatically)
+1. Open port 3478 (TCP+UDP) **and the relay range 49160–49200/udp** in your router and forward
+   them to the Unraid IP
+2. Verify that `turn_uris` is correctly set in `homeserver.yaml` — this happens automatically
+   and follows `TURN_DOMAIN`/`TURN_PORT` if you set them (default: `SERVER_NAME:3478`)
 3. The TURN shared secret in `homeserver.yaml` and `turnserver.conf` must match
    (both are populated from `/data/.turn_secret` — check container logs if there are issues)
 4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges — this may affect LAN testing
