@@ -1,6 +1,9 @@
-﻿<a href="https://matrix.org">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.png" alt="Matrix" width="100%">
-</a>
+﻿<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner-dark.png">
+    <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner.png" alt="Matrix" width="100%">
+  </picture>
+</p>
 
 <p align="center">
   <a href="https://github.com/junkerderprovinz/matrix/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/junkerderprovinz/matrix/build.yml?branch=main&label=Build&style=for-the-badge&logo=githubactions&logoColor=white" alt="Build" height="36"></a>&nbsp;

@@ -1,7 +1,15 @@
 /**
- * Generates the Matrix README banner (house banner convention):
- *   matrix-banner.svg / .png : white 1600x500 - the "[m]" mark on the left, the
- *                              "matrix" wordmark + a cheeky claim to the right.
+ * Generates the Matrix README banners (house banner convention, theme-adaptive):
+ *   matrix-banner.svg / .png      : white 1600x500 - the "[m]" mark on the left,
+ *                                   the "matrix" wordmark + claim to the right.
+ *   matrix-banner-dark.svg / .png : same layout on GitHub-dark #0d1117 with light
+ *                                   text, served via <picture> in the README.
+ *
+ * There are no hell/dunkel logo masters - icon.png is the only [m] source (black
+ * mark on an opaque white box, RGB, no alpha). Both themes embed that raster
+ * VERBATIM; the dark theme recolours it with an feColorMatrix (luminance -> alpha,
+ * RGB -> constant light tint), which turns the white box transparent and the mark
+ * light WITHOUT touching the logo geometry.
  *
  * Brand font: matrix.org's wordmark is Helvetica Neue Bold (matrix.org/branding).
  * Helvetica isn't on Windows, so we use its metric-identical clone Arial Bold from
@@ -36,9 +44,15 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const NAME = "matrix"; // lowercase, exactly like the official [matrix] wordmark
 const CLAIM = "Like the big messengers, but you hold the keys.";
 const NAME_FONT = "C:/Windows/Fonts/arialbd.ttf"; // Arial Bold = Helvetica metric clone
-const NAME_FILL = "#1a1a1a"; // near-black, matches the [m] mark
-const CLAIM_FILL = "#5a5d5e"; // house claim grey
 const W = 1600, H = 500;
+
+// Theme pair (house rule): text CONTENT/fonts/sizes identical, only colours flip.
+// dark.logoTint recolours the verbatim-embedded icon.png; light embeds it as-is
+// (its opaque white box is invisible on the white background).
+const THEMES = [
+  { suffix: "", bg: "#ffffff", name: "#1a1a1a", claim: "#5a5d5e", logoTint: null },
+  { suffix: "-dark", bg: "#0d1117", name: "#e6edf3", claim: "#9aa4ad", logoTint: "#e6edf3" },
+];
 const LH = 420; // [m] logo box (icon.png is square with internal padding)
 const LW = LH;
 let nameSize = 230; // shrunk below to fit
@@ -118,19 +132,41 @@ if (namePath.includes("NaN") || claimPath.includes("NaN")) {
 }
 
 // Embed the "[m]" mark from icon.png (no vector available) as a data URI.
+// tint=null: verbatim. tint set: feColorMatrix maps luminance -> alpha (black
+// mark opaque, white box transparent; 1.15 factor snaps the near-black #1a1a1a
+// mark to full alpha) and paints all pixels the constant tint colour. sRGB
+// interpolation keeps the anti-aliasing edges from the sRGB-authored raster.
 const iconB64 = readFileSync(join(__dir, "icon.png")).toString("base64");
-const logo = `<image x="${LX.toFixed(1)}" y="${LY.toFixed(1)}" width="${LW}" height="${LH}" href="data:image/png;base64,${iconB64}"/>`;
-
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Matrix">
-  <rect width="${W}" height="${H}" fill="#ffffff"/>
-  ${logo}
-  <path d="${namePath}" fill="${NAME_FILL}"/>
-  <path d="${claimPath}" fill="${CLAIM_FILL}"/>
-</svg>
-`;
-writeFileSync(join(__dir, "matrix-banner.svg"), svg);
+function logoMark(tint) {
+  const img = `<image x="${LX.toFixed(1)}" y="${LY.toFixed(1)}" width="${LW}" height="${LH}" href="data:image/png;base64,${iconB64}"`;
+  if (!tint) return `${img}/>`;
+  const [r, g, b] = [1, 3, 5].map((i) => (parseInt(tint.slice(i, i + 2), 16) / 255).toFixed(4));
+  const f = 1.15;
+  const values = [
+    `0 0 0 0 ${r}`,
+    `0 0 0 0 ${g}`,
+    `0 0 0 0 ${b}`,
+    `${(-0.2126 * f).toFixed(4)} ${(-0.7152 * f).toFixed(4)} ${(-0.0722 * f).toFixed(4)} 0 ${f}`,
+  ].join("  ");
+  // x/y/width/height clamp the filter region to the image bbox - the default
+  // -10%/120% margin would otherwise be painted opaque by the constant alpha
+  // offset (a tint-coloured frame around the logo).
+  return `<filter id="tint" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${values}"/></filter>
+  ${img} filter="url(#tint)"/>`;
+}
 
 const { Resvg } = require(`${gRoot}/@resvg/resvg-js`);
-const png = new Resvg(svg, { fitTo: { mode: "width", value: W }, background: "white" }).render().asPng();
-writeFileSync(join(__dir, "matrix-banner.png"), png);
-console.log(`wrote matrix-banner.svg + .png (name ${Math.round(nameW)}px @${nameSize}, claim ${Math.round(claimW)}px, group ${Math.round(groupW)}px)`);
+for (const t of THEMES) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Matrix">
+  <rect width="${W}" height="${H}" fill="${t.bg}"/>
+  ${logoMark(t.logoTint)}
+  <path d="${namePath}" fill="${t.name}"/>
+  <path d="${claimPath}" fill="${t.claim}"/>
+</svg>
+`;
+  writeFileSync(join(__dir, `matrix-banner${t.suffix}.svg`), svg);
+  const png = new Resvg(svg, { fitTo: { mode: "width", value: W }, background: t.bg }).render().asPng();
+  writeFileSync(join(__dir, `matrix-banner${t.suffix}.png`), png);
+  console.log(`wrote matrix-banner${t.suffix}.svg + .png`);
+}
+console.log(`(name ${Math.round(nameW)}px @${nameSize}, claim ${Math.round(claimW)}px, group ${Math.round(groupW)}px)`);
