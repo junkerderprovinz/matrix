@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Run hadolint
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: Dockerfile
           # DL3008: pin apt package versions — acceptable for a wrapper image
