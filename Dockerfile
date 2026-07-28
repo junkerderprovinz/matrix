@@ -114,8 +114,9 @@ COPY --from=synapse-admin /app /var/www/html/admin
 COPY rootfs/ /
 
 # Init-log banner: single source at .github/assets/banner-raw.txt (the shared
-# Junker-der-Provinz banner; CR stripped so the log shows it cleanly). The
-# cont-init.d/00-banner.sh script prints it once at startup.
+# Junker-der-Provinz banner; CR stripped so the log shows it cleanly). It is
+# printed by print-banner.sh from the matrix-ready service, as the last log
+# block directly above the "MATRIX IS READY" box.
 COPY .github/assets/banner-raw.txt /usr/local/share/banner-raw.txt
 RUN tr -d '\r' < /usr/local/share/banner-raw.txt > /usr/local/share/banner.txt
 
