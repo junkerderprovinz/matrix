@@ -26,6 +26,9 @@ while [ "$i" -lt 150 ]; do
     sleep 2
 done
 
+# House init-log banner as the final block, directly above the READY box.
+/usr/local/bin/print-banner.sh "Matrix" "Synapse + Element + coturn, plug-and-play for Unraid"
+
 SEP=$(printf '%72s' '' | tr ' ' '#')
 echo ""
 echo "$SEP"
