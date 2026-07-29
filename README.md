@@ -14,7 +14,7 @@
   <a href="https://github.com/element-hq/synapse"><img src="https://img.shields.io/badge/Synapse-homeserver-0dbd8b?style=for-the-badge&logo=matrix&logoColor=white" alt="Synapse" height="36"></a>&nbsp;
   <a href="https://element.io"><img src="https://img.shields.io/badge/Element-web%20client-0dbd8b?style=for-the-badge&logo=element&logoColor=white" alt="Element" height="36"></a>&nbsp;
   <a href="https://unraid.net"><img src="https://img.shields.io/badge/Unraid-Template-f15a2c?style=for-the-badge&logo=unraid&logoColor=white" alt="Unraid" height="36"></a>&nbsp;
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" height="36"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge&logo=gnu&logoColor=white" alt="License: AGPL-3.0" height="36"></a>
 </p>
 
 <p align="center">
@@ -94,6 +94,7 @@ federation `well-known` snippet are in [section 5](#5-npm-configuration-nginx-pr
 12. [Troubleshooting](#12-troubleshooting)
 13. [Contributing / License](#13-contributing--license)
 14. [Support this project](#14-support-this-project)
+15. [License](#15-license)
 <br>
 
 ## 1. What Is This?
@@ -805,7 +806,7 @@ PRs are welcome. Please:
 
 ### License
 
-MIT — see [LICENSE](LICENSE)
+GNU Affero General Public License v3.0 (AGPL-3.0); see [LICENSE](LICENSE)
 
 This project is not officially affiliated with Element HQ, the Matrix Foundation, or
 the Element project. Synapse, Element, and coturn are their respective
@@ -824,3 +825,13 @@ If this template saves you a setup hassle or a debug night, consider buying me a
     <img src=".github/assets/button-buy-me-a-coffee.svg" alt="Buy me a coffee" width="220">
   </a>
 </p>
+
+<br>
+
+## 15. License
+
+**Copyright (C) 2026 Junker der Provinz.**
+
+This repository packages Matrix Synapse as a container for Unraid. The packaging in this repository (Dockerfile, scripts, theme, web assets and everything else original here) is free software under the **GNU Affero General Public License v3.0** (AGPL-3.0); see [LICENSE](LICENSE). If you distribute it, or run a modified version as a network service, you must release your source under the same AGPL-3.0 terms and keep the existing copyright and attribution notices intact.
+
+**Scope.** The AGPL applies to this repository's own code and assets. Matrix Synapse itself is a separate project under its own license and name; this repository does not claim it. The banner, logo, theme and other branding original to this repository remain reserved: a fork must use its own branding and may not present itself as this project.
