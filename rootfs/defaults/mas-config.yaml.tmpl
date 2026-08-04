@@ -1,0 +1,108 @@
+# =============================================================================
+# mas-config.yaml.tmpl — Matrix Authentication Service configuration
+#
+# Rendered by 20-mas.sh to /data/mas/config.yaml, but ONLY when AUTH_ENABLED is
+# true. With the switch off this template is never touched and MAS never starts.
+#
+# DESIGN RULE: exactly ONE rendered config file. Do NOT add a second file and
+# load both with repeated --config. MAS merges configuration with figment's
+# admerge, which CONCATENATES conflicting arrays rather than replacing them — a
+# second file carrying its own http.listeners would add a bind on [::]:8080 (the
+# very collision with lighttpd we avoid here), and a matrix block holding both
+# `secret` and `secret_file` is rejected outright with
+# "Cannot specify both 'secret' and 'secret_file'".
+#
+# For the same reason every secret is referenced by *_file and never inlined:
+# the values live in /data/mas/ with mode 600 and survive container recreation.
+#
+# CI lints this file as YAML after placeholder substitution, so it must stay
+# parseable — keep ${...} placeholders out of positions where a bare value is
+# syntactically required.
+# =============================================================================
+
+http:
+  # Public URL clients are redirected to. MUST be https:// — MAS rejects plain
+  # http redirect/client URIs during dynamic client registration, which is what
+  # Element Web's OIDC-native flow uses (verified: it fails with
+  # "invalid_redirect_uri: invalid client_uri; invalid redirect_uri").
+  # 20-mas.sh refuses to start the container if this is not https://.
+  public_base: "${AUTH_PUBLIC_BASE}"
+  issuer: "${AUTH_PUBLIC_BASE}"
+  listeners:
+    # Public listener. 8090, not MAS's default 8080, which lighttpd already owns
+    # inside this container.
+    - name: web
+      resources:
+        - name: discovery
+        - name: human
+        - name: oauth
+        - name: compat
+        - name: graphql
+        - name: assets
+        - name: adminapi
+      binds:
+        - address: "0.0.0.0:8090"
+      proxy_protocol: false
+    # Internal-only health endpoint, used by the mas service script and by
+    # matrix-ready before it prints the READY banner. Never exposed.
+    - name: internal
+      resources:
+        - name: health
+      binds:
+        - address: "127.0.0.1:8091"
+      proxy_protocol: false
+
+database:
+  host: "${AUTH_POSTGRES_HOST}"
+  port: ${AUTH_POSTGRES_PORT}
+  username: "${AUTH_POSTGRES_USER}"
+  password: "${AUTH_POSTGRES_PASSWORD}"
+  # MUST be a database of its own, separate from Synapse's, and empty on first
+  # start. syn2mas refuses to run against a non-empty MAS database.
+  database: "${AUTH_POSTGRES_DB}"
+
+matrix:
+  kind: synapse
+  # Has to be exactly Synapse's server_name, otherwise syn2mas rejects the
+  # migration and MAS cannot address the homeserver.
+  homeserver: "${SERVER_NAME}"
+  endpoint: "http://127.0.0.1:8008/"
+  secret_file: /data/mas/matrix.secret
+
+secrets:
+  # NEVER regenerate these after the first start. Changing encryption loses every
+  # encrypted value in the MAS database; changing the key or its kid invalidates
+  # all issued tokens. 20-mas.sh creates them once and only ever reads them after.
+  encryption_file: /data/mas/encryption.secret
+  keys:
+    - kid: primary
+      key_file: /data/mas/keys/rsa.key
+
+passwords:
+  enabled: true
+  schemes:
+    # version 1 / bcrypt / unicode_normalization is REQUIRED for syn2mas: it is
+    # the scheme Synapse's existing password hashes are in. Drop it and every
+    # migrated user's password silently stops working.
+    - version: 1
+      algorithm: bcrypt
+      unicode_normalization: true
+    # New and changed passwords are written with the stronger scheme.
+    - version: 2
+      algorithm: argon2id
+
+account:
+  # Registration through MAS is off by default, exactly like Synapse's
+  # enable_registration. Turn it on deliberately, ideally with a token or CAPTCHA.
+  password_registration_enabled: ${AUTH_ALLOW_REGISTRATION}
+  password_change_allowed: true
+  email_change_allowed: true
+  displayname_change_allowed: true
+  account_deactivation_allowed: true
+
+policy:
+  # Ships inside the image next to the binary; the policy engine is in-process
+  # WebAssembly, so there is no OPA daemon to run.
+  wasm_module: /usr/local/share/mas-cli/policy.wasm
+
+clients: []

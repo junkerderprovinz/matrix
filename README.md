@@ -90,11 +90,12 @@ federation `well-known` snippet are in [section 5](#5-npm-configuration-nginx-pr
 8. [Adding Bridges](#8-adding-bridges)
 9. [Creating the First Admin User](#9-creating-the-first-admin-user)
 10. [Generating Registration Tokens](#10-generating-registration-tokens)
-11. [Updates](#11-updates)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Contributing / License](#13-contributing--license)
-14. [License](#14-license)
-15. [Support this project](#15-support-this-project)
+11. [Delegated Auth and QR Code Login](#11-delegated-auth-and-qr-code-login)
+12. [Updates](#12-updates)
+13. [Troubleshooting](#13-troubleshooting)
+14. [Contributing / License](#14-contributing--license)
+15. [License](#15-license)
+16. [Support this project](#16-support-this-project)
 <br>
 
 ## 1. What Is This?
@@ -119,7 +120,7 @@ without maintaining our own Synapse build pipeline. The GitHub Actions workflow 
 Synapse releases every hour and rebuilds the image automatically — and no build ships blind:
 before `:latest` is published, CI boots the freshly built image against a throwaway PostgreSQL
 and refuses to release it unless Synapse is demonstrably running on that database (a silent
-SQLite fallback fails the build). Details in [section 11](#11-updates).
+SQLite fallback fails the build). Details in [section 12](#12-updates).
 
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
@@ -626,7 +627,137 @@ Then restart the container: **Docker → Matrix → Restart**
 
 <br>
 
-## 11. Updates
+## 11. Delegated Auth and QR Code Login
+
+**Off by default, and it stays off until you change a field.** If you never touch the settings in this
+section, the container behaves exactly as it always has. Nothing in this feature runs, and the Synapse
+config the container renders is byte-for-byte what it was before the feature existed.
+
+### What it is, and why it is not a checkbox
+
+Element shows **Settings → Sessions → Link new device** with a greyed-out *Show QR code* button and the
+note *"Not supported by your account provider"*. That is not a bug in Element. Signing a new device in by
+QR code is [MSC4108](https://github.com/matrix-org/matrix-spec-proposals/pull/4108), which is built on
+OAuth 2.0, and a plain Synapse with password logins has no OAuth to offer. Synapse will not even start
+with `msc4108_enabled` unless authentication is delegated: it exits with
+*"MSC4108 requires matrix_authentication_service to be enabled"*.
+
+So QR login requires running **[Matrix Authentication Service](https://github.com/element-hq/matrix-authentication-service)**
+(MAS), Element's OAuth 2.0 provider for Matrix. It ships inside this image and can be switched on, but it
+is a second service with its own database, its own public hostname, and real consequences for how your
+users sign in.
+
+### Before you switch it on
+
+Read this list. All of it applies the moment delegation is active.
+
+| What changes | Detail |
+|---|---|
+| **Sign-in moves to the browser** | Element hides the password field entirely and sends users to your auth hostname. |
+| **Login by email address stops working** | MAS's compatibility layer only accepts a username. |
+| **Password changes leave Element** | Password, email and account deletion live in the MAS web UI from then on. |
+| **Removing a single device fails** | The client-side "sign out this session" call is no longer served. |
+| **Synapse registration is impossible** | `Enable Registration` cannot be used. Use `Auth: allow registration` instead. |
+| **`ADMIN_USER` / `ADMIN_PASSWORD` stop working** | They cannot create or promote an admin any more. Use `mas-cli manage` (below). |
+| **Encrypted bridges break** | Bridges that use appservice login with end-to-end encryption cannot authenticate. Unencrypted bridges keep working. |
+
+**Existing accounts are not moved automatically.** They stay in Synapse until you run `syn2mas`, and until
+you do, nobody can log in. That migration needs downtime and is not practically reversible once MAS has
+been started and anyone has signed in. **Back up first.**
+
+### Requirements
+
+1. **A second PostgreSQL database**, empty, separate from Synapse's. MAS cannot share one.
+
+   ```sql
+   CREATE DATABASE mas TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C';
+   ```
+
+2. **A second reverse-proxy host**, for example `auth.yourdomain.tld`, forwarding to this container's
+   port **8090**, with a certificate. **HTTPS is mandatory** — MAS rejects plain-http redirect URLs, and
+   Element's sign-in then fails with an unhelpful error. The container refuses to start if
+   `AUTH_PUBLIC_BASE` is not `https://`.
+
+3. **A routing rule on your Matrix host.** Under delegation, Synapse no longer serves the login endpoints;
+   MAS does. Without this rule Element fails immediately with `M_UNRECOGNIZED`. In NPM, add to the
+   **Advanced** tab of your `matrix.yourdomain.tld` host, *above* the existing location block:
+
+   ```nginx
+   location ~ ^/_matrix/client/(.*)/(login|logout|refresh) {
+       proxy_pass http://UNRAID-IP:8090;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   ```
+
+   Everything else, **including `/_synapse/mas`**, must keep going to port 8008.
+
+### Switching it on
+
+Set these in the template (all under *Advanced*):
+
+| Field | Value |
+|---|---|
+| `Delegated Auth (QR login)` | `true` |
+| `Auth Public URL` | `https://auth.yourdomain.tld/` |
+| `Auth Database Name` | `mas` |
+
+Start the container. The log ends with **AUTH IS READY** next to the usual MATRIX IS READY line. If
+something is missing, the container stops with a `[mas] ERROR:` line explaining exactly what.
+
+### Migrating existing accounts
+
+Check first — this is safe while Synapse is running:
+
+```bash
+docker exec -it Matrix mas-cli syn2mas check \
+    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
+docker exec -it Matrix mas-cli syn2mas migrate --dry-run \
+    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
+```
+
+Back up before the real run. This is the point of no return:
+
+```bash
+docker exec Postgres pg_dump -U matrix -Fc matrix > /mnt/user/backups/matrix-$(date +%F).dump
+docker stop Matrix
+tar czf /mnt/user/backups/matrix-appdata-$(date +%F).tgz -C /mnt/user/appdata matrix
+```
+
+Then migrate with Synapse stopped. Users keep their sessions and devices, so nobody is signed out:
+
+```bash
+docker exec -it Matrix mas-cli syn2mas migrate \
+    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
+```
+
+### Administering users afterwards
+
+```bash
+docker exec -it Matrix mas-cli manage register-user --config /data/mas/config.yaml \
+    --yes --admin --password '<password>' <username>
+docker exec -it Matrix mas-cli manage set-password --config /data/mas/config.yaml <username> '<password>'
+docker exec -it Matrix mas-cli manage promote-admin --config /data/mas/config.yaml <username>
+```
+
+The admin UI at `:8080/admin/` needs a token that carries Synapse admin scope:
+
+```bash
+docker exec -it Matrix mas-cli manage issue-compatibility-token --config /data/mas/config.yaml \
+    <username> --yes-i-want-to-grant-synapse-admin-privileges
+```
+
+### Turning it back off
+
+Setting `Delegated Auth` back to `false` returns Synapse to handling its own logins. **If you already
+migrated with `syn2mas`, do not do this** — the accounts and passwords now live in the MAS database and
+logins will simply fail. Restore your backup instead. The container warns about exactly this situation on
+start.
+
+<br>
+
+## 12. Updates
 
 ### Automatic image updates (GitHub Actions)
 
@@ -655,7 +786,7 @@ Nothing is published blind — every rebuild must pass a **boot smoke-test gate*
 
 <br>
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
@@ -811,7 +942,7 @@ Advanced overrides (rarely needed):
 
 <br>
 
-## 13. Contributing / License
+## 14. Contributing / License
 
 ### Issues & feature requests
 
@@ -837,7 +968,7 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 <br>
 
-## 14. License
+## 15. License
 
 **Copyright (C) 2026 Junker der Provinz.**
 
@@ -847,7 +978,7 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 
 <br>
 
-## 15. Support this project
+## 16. Support this project
 
 If this template saves you a setup hassle or a debug night, consider buying me a coffee:
 

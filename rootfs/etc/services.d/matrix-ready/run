@@ -26,6 +26,27 @@ while [ "$i" -lt 150 ]; do
     sleep 2
 done
 
+# When delegated auth is on, MAS is part of "ready": Synapse answering /health
+# while MAS is still migrating its database means logins fail for anyone who
+# tries in that window. Gate on its internal health listener too, but never let
+# it block the banner for longer than a minute — a missing MAS is reported, not
+# hidden behind a silent hang.
+mas_ready=""
+case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on)
+        mas_ready=0
+        j=0
+        while [ "$j" -lt 30 ]; do
+            if curl -fsS http://127.0.0.1:8091/health >/dev/null 2>&1; then
+                mas_ready=1
+                break
+            fi
+            j=$((j + 1))
+            sleep 2
+        done
+        ;;
+esac
+
 # House init-log banner as the final block, directly above the READY box.
 /usr/local/bin/print-banner.sh "Matrix" "Synapse + Element + coturn, plug-and-play for Unraid"
 
@@ -34,6 +55,11 @@ echo ""
 echo "$SEP"
 if [ "$ready" -eq 1 ]; then
     echo "###  MATRIX IS READY  -  Synapse is serving on port 8008 (point your reverse proxy / Element here)  ###"
+    if [ "$mas_ready" = "1" ]; then
+        echo "###  AUTH IS READY    -  Matrix Authentication Service is serving on port 8090 (QR code login available)  ###"
+    elif [ "$mas_ready" = "0" ]; then
+        echo "###  WARNING: AUTH DID NOT BECOME READY  -  MAS /health never answered; logins will fail, check the log above  ###"
+    fi
 else
     echo "###  WARNING: MATRIX DID NOT BECOME READY  -  Synapse /health never answered within 5 min, check the log above  ###"
 fi
