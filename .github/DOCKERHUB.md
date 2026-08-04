@@ -26,7 +26,7 @@ A **wrapper around the official Synapse image** from Element (`ghcr.io/element-h
 | **Synapse** | Matrix homeserver (core component) | 8008 |
 | **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
-| **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
+| **Ketesa** | Admin interface (users, rooms, tokens), the maintained fork of Synapse-Admin | 8080/admin/ |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **PostgreSQL is external** — Synapse requires specific locale settings (below), and keeping the database external gives you full control over backups and performance.
@@ -116,7 +116,7 @@ Found a bug? Have a feature request? → [GitHub issues](https://github.com/junk
 
 ## License
 
-MIT — see [LICENSE](https://github.com/junkerderprovinz/matrix/blob/main/LICENSE). Not officially affiliated with Element HQ, the Matrix Foundation, or the Element project; Synapse, Element and coturn are their respective projects (under their own licenses), used unmodified.
+AGPL-3.0-only — see [LICENSE](https://github.com/junkerderprovinz/matrix/blob/main/LICENSE). Not officially affiliated with Element HQ, the Matrix Foundation, or the Element project; Synapse, Element, coturn and Ketesa are their respective projects (under their own licenses), used unmodified.
 
 ---
 

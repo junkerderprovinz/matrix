@@ -13,7 +13,7 @@ plug-and-play Matrix homeserver on Unraid:
 | Synapse       | Matrix homeserver (from upstream image)| 8008                 |
 | coturn        | TURN/STUN for voice/video              | 3478, 5349, 49160-49200/udp |
 | Element Web   | Web client (static, from upstream image)| 8080/element/       |
-| Synapse-Admin | Admin UI (static, from upstream image) | 8080/admin/          |
+| Ketesa        | Admin UI (static, from upstream image) | 8080/admin/          |
 | lighttpd      | Serves the two static web apps         | 8080                 |
 | Prometheus    | Synapse metrics endpoint               | 9090                 |
 
@@ -26,7 +26,7 @@ repo, not here.
 ## Layout
 
 ```
-Dockerfile                       Multi-stage: element-web + synapse-admin -> synapse
+Dockerfile                       Multi-stage: element-web + ketesa -> synapse
 rootfs/                          Overlay copied into the image (COPY rootfs/ /)
   etc/cont-init.d/               s6 one-shot init (00-banner.sh, 10-config.sh)
   etc/services.d/*/run           s6 long-running services (synapse, coturn,
@@ -42,8 +42,16 @@ renovate.json                    Dependency automation config
 ```
 
 There is no Go, no application source to compile, and no frontend to build in
-this repo — Element Web and Synapse-Admin arrive prebuilt from their upstream
+this repo — Element Web and Ketesa arrive prebuilt from their upstream
 images. The only "build" is `docker build`.
+
+**Component versions live in the Dockerfile ARGs and nowhere else.** `build.yml`
+must not pass ELEMENT_VERSION / SYNAPSE_ADMIN_VERSION / S6_OVERLAY_VERSION as
+build-args: doing so shadows the Dockerfile, and Renovate's custom managers match
+the Dockerfile lines, so bumps would never reach the image. SYNAPSE_VERSION is the
+sole exception (resolved to the latest upstream release at build time). Renovate's
+datasources must point at the registry the Dockerfile actually pulls from, not at
+a same-named GitHub repo.
 
 ## Build / run / test (local)
 

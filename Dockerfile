@@ -1,21 +1,28 @@
 # syntax=docker/dockerfile:1.25
 # =============================================================================
 # Matrix All-in-One — Wrapper around the official Synapse image
-# Adds: coturn (TURN/STUN), Element Web, Synapse-Admin, lighttpd, s6-overlay
+# Adds: coturn (TURN/STUN), Element Web, Ketesa (admin UI), lighttpd, s6-overlay
 #
 # GitHub:  https://github.com/junkerderprovinz/matrix
 # Image:   ghcr.io/junkerderprovinz/matrix
-# License: Apache 2.0
+# License: AGPL-3.0-only
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Global build args — declared BEFORE the first FROM so they are available
 # in every stage's FROM line. Per stage they still need to be re-declared
 # with `ARG <name>` to be available inside RUN/COPY/etc.
+#
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH for the component versions. The build
+# workflow must not shadow these with its own build-args, or Renovate (whose
+# custom managers match exactly these lines) would bump values that never reach
+# the published image. The one exception is SYNAPSE_VERSION: build.yml resolves
+# the latest upstream Synapse release at build time and passes it in on purpose,
+# so the value below is only the local `docker build` default.
 # -----------------------------------------------------------------------------
 ARG SYNAPSE_VERSION=v1.156.0
 ARG ELEMENT_VERSION=v1.12.23
-ARG SYNAPSE_ADMIN_VERSION=0.11.4
+ARG SYNAPSE_ADMIN_VERSION=v1.4.0
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
 # -----------------------------------------------------------------------------
@@ -25,10 +32,17 @@ ARG ELEMENT_VERSION
 FROM vectorim/element-web:${ELEMENT_VERSION} AS element-web
 
 # -----------------------------------------------------------------------------
-# Stage 2 — Pull Synapse-Admin static assets
+# Stage 2 — Pull the admin UI static assets
+#
+# Ketesa (github.com/etkecc/ketesa), formerly published as etkecc/synapse-admin,
+# is the maintained fork of Awesome-Technologies/synapse-admin. It is a drop-in
+# replacement, is the only variant that understands a homeserver delegating auth
+# to Matrix Authentication Service, and unlike the original it is still shipping
+# releases. Renovate tracks this same image, so the tag here is the one that is
+# actually built.
 # -----------------------------------------------------------------------------
 ARG SYNAPSE_ADMIN_VERSION
-FROM awesometechnologies/synapse-admin:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
+FROM ghcr.io/etkecc/ketesa:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
 
 # -----------------------------------------------------------------------------
 # Stage 3 — Final image, based on official Synapse
@@ -45,9 +59,9 @@ ARG TARGETARCH
 
 # OCI image labels
 LABEL org.opencontainers.image.title="Matrix All-in-One" \
-      org.opencontainers.image.description="Synapse + coturn + Element Web + Synapse-Admin, plug-and-play for Unraid" \
+      org.opencontainers.image.description="Synapse + coturn + Element Web + Ketesa admin UI, plug-and-play for Unraid" \
       org.opencontainers.image.source="https://github.com/junkerderprovinz/matrix" \
-      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.version="${SYNAPSE_VERSION}" \
       org.opencontainers.image.vendor="junkerderprovinz" \
       maintainer="junkerderprovinz"
@@ -105,10 +119,13 @@ RUN case "${TARGETARCH}" in \
 # /usr/share/nginx/html as a symlink to /app — we copy the real path to avoid
 # dangling symlinks).
 #
-# awesometechnologies/synapse-admin uses the same convention: /app -> built site.
+# Ketesa does NOT use that convention: it is built on static-web-server, runs as
+# the unprivileged `sws` user and keeps the built site at /home/sws/public. We
+# take the root-base build (assets referenced relatively), which is what makes it
+# work unchanged under lighttpd's /admin/ prefix.
 # -----------------------------------------------------------------------------
-COPY --from=element-web   /app /var/www/html/element
-COPY --from=synapse-admin /app /var/www/html/admin
+COPY --from=element-web   /app              /var/www/html/element
+COPY --from=synapse-admin /home/sws/public  /var/www/html/admin
 
 # Copy our rootfs overlay (service scripts, config templates, init scripts)
 COPY rootfs/ /

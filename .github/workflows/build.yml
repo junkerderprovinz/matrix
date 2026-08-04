@@ -52,10 +52,12 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/junkerderprovinz/matrix
-  # Pinned component versions — update these to bump non-Synapse components
-  ELEMENT_VERSION: v1.11.92
-  SYNAPSE_ADMIN_VERSION: "0.10.3"
-  S6_OVERLAY_VERSION: "3.2.0.2"
+  # NOTE: component versions (Element Web, Ketesa, s6-overlay) are pinned in the
+  # Dockerfile ARGs and deliberately NOT repeated here. They used to be listed as
+  # build-args below, which silently overrode the Dockerfile and meant Renovate
+  # (whose custom managers match the Dockerfile ARG lines) bumped values that
+  # never reached the published image. Synapse is the one exception: it is
+  # resolved to the latest upstream release at build time, see the step below.
   # Opt into Node.js 24 for all JavaScript actions to silence the
   # deprecation warning about Node.js 20. Safe — runner already ships
   # Node 24, the actions run on it without code changes.
@@ -224,9 +226,6 @@ jobs:
           tags: matrix:smoke-amd64
           build-args: |
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
-            ELEMENT_VERSION=${{ env.ELEMENT_VERSION }}
-            SYNAPSE_ADMIN_VERSION=${{ env.SYNAPSE_ADMIN_VERSION }}
-            S6_OVERLAY_VERSION=${{ env.S6_OVERLAY_VERSION }}
           cache-from: type=gha
 
       - name: Smoke test — amd64 must boot and serve /health
@@ -334,15 +333,13 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
-            ELEMENT_VERSION=${{ env.ELEMENT_VERSION }}
-            SYNAPSE_ADMIN_VERSION=${{ env.SYNAPSE_ADMIN_VERSION }}
-            S6_OVERLAY_VERSION=${{ env.S6_OVERLAY_VERSION }}
           # Use GitHub Actions cache to speed up subsequent builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.title=Matrix All-in-One
-            org.opencontainers.image.description=Synapse + coturn + Element Web + Synapse-Admin
+            org.opencontainers.image.description=Synapse + coturn + Element Web + Ketesa admin UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
             org.opencontainers.image.source=https://github.com/junkerderprovinz/matrix
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}

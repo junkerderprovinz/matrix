@@ -14,7 +14,7 @@
   "packageRules": [
     {
       "description": "Synapse upstream — major bumps are breaking, keep manual",
-      "matchPackageNames": ["matrixdotorg/synapse", "element-hq/synapse"],
+      "matchPackageNames": ["ghcr.io/element-hq/synapse"],
       "groupName": "Synapse",
       "commitMessageTopic": "Synapse",
       "commitMessagePrefix": "feat:",
@@ -29,10 +29,10 @@
       "labels": ["upstream-bump", "element"]
     },
     {
-      "description": "Synapse-Admin upstream",
-      "matchPackageNames": ["awesometechnologies/synapse-admin", "etkecc/synapse-admin"],
-      "groupName": "Synapse-Admin",
-      "commitMessageTopic": "Synapse-Admin",
+      "description": "Ketesa (admin UI, formerly Synapse-Admin) upstream",
+      "matchPackageNames": ["ghcr.io/etkecc/ketesa"],
+      "groupName": "Ketesa",
+      "commitMessageTopic": "Ketesa",
       "commitMessagePrefix": "feat:",
       "labels": ["upstream-bump", "synapse-admin"]
     },
@@ -71,7 +71,7 @@
       "matchStrings": [
         "ARG SYNAPSE_VERSION=(?<currentValue>v[^\\s]+)"
       ],
-      "depNameTemplate": "matrixdotorg/synapse",
+      "depNameTemplate": "ghcr.io/element-hq/synapse",
       "datasourceTemplate": "docker"
     },
     {
@@ -86,14 +86,13 @@
     },
     {
       "customType": "regex",
-      "description": "Track Synapse-Admin version from ARG SYNAPSE_ADMIN_VERSION=<tag> (GitHub releases)",
+      "description": "Track Ketesa (admin UI) version from ARG SYNAPSE_ADMIN_VERSION=<tag>. Must stay a Docker datasource pointing at the image the Dockerfile actually pulls — tracking the GitHub repo instead would offer tags that do not exist on the registry.",
       "managerFilePatterns": ["/(^|/)Dockerfile$/"],
       "matchStrings": [
-        "ARG SYNAPSE_ADMIN_VERSION=(?<currentValue>[^\\s]+)"
+        "ARG SYNAPSE_ADMIN_VERSION=(?<currentValue>v[^\\s]+)"
       ],
-      "depNameTemplate": "etkecc/synapse-admin",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v?(?<version>.+)$"
+      "depNameTemplate": "ghcr.io/etkecc/ketesa",
+      "datasourceTemplate": "docker"
     },
     {
       "customType": "regex",

@@ -108,8 +108,8 @@ Matrix homeserver:
 | **Synapse** | Matrix homeserver (core component) | 8008 |
 | **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
-| **Synapse-Admin** | Admin interface (users, rooms, tokens) | 8080/admin/ |
-| **lighttpd** | Lightweight web server for Element Web + Synapse-Admin | 8080 |
+| **Ketesa** | Admin interface (users, rooms, tokens), the maintained fork of Synapse-Admin | 8080/admin/ |
+| **lighttpd** | Lightweight web server for Element Web + Ketesa | 8080 |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **Why a wrapper instead of building from scratch?**
