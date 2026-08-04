@@ -405,6 +405,119 @@ jobs:
           echo "✅ MAS secrets persisted across a restart"
 
       # -----------------------------------------------------------------------
+      # Third smoke gate: the syn2mas migration.
+      #
+      # This is the only irreversible thing the image can do to a user's data, so
+      # it gets the most demanding test: create a real account under plain
+      # Synapse auth, prove it can log in, migrate it, and then prove the SAME
+      # PASSWORD still works against the auth service afterwards.
+      #
+      # That last assertion is the one that matters. A migration that "succeeds"
+      # while leaving password hashes unusable would look perfectly fine in the
+      # logs and lock every user out of their account — it is exactly what
+      # happens if the bcrypt scheme is missing from the MAS config.
+      # -----------------------------------------------------------------------
+      - name: Smoke test — syn2mas must migrate accounts and keep passwords working
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm -f mx-mig mx-mig-pg >/dev/null 2>&1 || true
+            docker volume rm mx-mig-data >/dev/null 2>&1 || true
+            docker network rm mx-mig-net >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create mx-mig-net
+          docker volume create mx-mig-data >/dev/null
+          docker run -d --name mx-mig-pg --network mx-mig-net \
+            -e POSTGRES_USER=synapse -e POSTGRES_PASSWORD=smoke \
+            -e POSTGRES_DB=synapse \
+            -e POSTGRES_INITDB_ARGS="--encoding=UTF-8 --lc-collate=C --lc-ctype=C" \
+            postgres:16-alpine
+          for i in $(seq 1 60); do
+            docker exec mx-mig-pg pg_isready -h 127.0.0.1 -U synapse >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+          echo "--- phase 1: plain Synapse auth, create a real account ---"
+          docker run -d --name mx-mig --network mx-mig-net -p 18108:8008 \
+            -v mx-mig-data:/data \
+            -e SERVER_NAME=smoke.local \
+            -e POSTGRES_HOST=mx-mig-pg -e POSTGRES_USER=synapse \
+            -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=synapse \
+            -e ADMIN_USER=migtest -e ADMIN_PASSWORD='MigTest-2026!pw' \
+            matrix:smoke-amd64
+          for i in $(seq 1 180); do
+            curl -fsS -o /dev/null http://localhost:18108/health && break
+            if [ -z "$(docker ps -q --filter name=mx-mig$)" ]; then
+              echo "❌ container exited"; docker logs mx-mig || true; exit 1
+            fi
+            sleep 1
+          done
+          # admin-bootstrap creates the account once Synapse answers
+          for i in $(seq 1 90); do
+            if curl -fsS -X POST http://localhost:18108/_matrix/client/v3/login \
+                 -H 'Content-Type: application/json' \
+                 -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"migtest"},"password":"MigTest-2026!pw"}' \
+                 2>/dev/null | grep -q access_token; then
+              echo "✅ account logs in under plain Synapse auth (after ${i}s)"
+              break
+            fi
+            [ "$i" = "90" ] && { echo "❌ account never became usable"; docker logs mx-mig || true; exit 1; }
+            sleep 2
+          done
+
+          echo "--- phase 2: same volume, delegated auth + migration ---"
+          docker rm -f mx-mig >/dev/null
+          docker exec -e PGPASSWORD=smoke mx-mig-pg psql -h 127.0.0.1 -U synapse -d postgres \
+            -c "CREATE DATABASE mas TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C';"
+          docker run -d --name mx-mig --network mx-mig-net -p 18109:8008 -p 18190:8090 \
+            -v mx-mig-data:/data \
+            -e SERVER_NAME=smoke.local \
+            -e POSTGRES_HOST=mx-mig-pg -e POSTGRES_USER=synapse \
+            -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=synapse \
+            -e AUTH_ENABLED=true -e AUTH_PUBLIC_BASE=https://auth.smoke.local/ \
+            -e AUTH_POSTGRES_DB=mas -e AUTH_MIGRATE=true \
+            matrix:smoke-amd64
+          for i in $(seq 1 240); do
+            curl -fsS -o /dev/null http://localhost:18109/health && break
+            if [ -z "$(docker ps -q --filter name=mx-mig$)" ]; then
+              echo "❌ container stopped during migration — logs:"; docker logs mx-mig || true; exit 1
+            fi
+            sleep 1
+          done
+          docker logs mx-mig 2>&1 | grep -q "ACCOUNTS MIGRATED" \
+            || { echo "❌ migration banner missing"; docker logs mx-mig || true; exit 1; }
+          echo "✅ migration ran and reported success"
+          docker exec mx-mig test -f /data/mas/.migrated \
+            || { echo "❌ migration marker not written — it would run again on next start"; exit 1; }
+          echo "✅ migration marker written"
+
+          echo "--- phase 3: the account must still work, with the same password ---"
+          for i in $(seq 1 60); do
+            curl -fsS -o /dev/null http://localhost:18190/.well-known/openid-configuration && break
+            sleep 1
+          done
+          TOKEN=$(curl -fsS -X POST http://localhost:18190/_matrix/client/v3/login \
+            -H 'Content-Type: application/json' \
+            -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"migtest"},"password":"MigTest-2026!pw"}' \
+            2>/dev/null | grep -o '"access_token":"[^"]*"' || true)
+          [ -n "${TOKEN}" ] \
+            || { echo "❌ migrated account cannot log in — every user would be locked out"; docker logs mx-mig | tail -40 || true; exit 1; }
+          echo "✅ migrated account logs in against the auth service with its original password"
+
+          echo "--- phase 4: restarting must not migrate a second time ---"
+          docker restart mx-mig >/dev/null
+          for i in $(seq 1 180); do
+            curl -fsS -o /dev/null http://localhost:18109/health && break
+            sleep 1
+          done
+          COUNT=$(docker logs mx-mig 2>&1 | grep -c "ACCOUNTS MIGRATED" || true)
+          [ "${COUNT}" = "1" ] \
+            || { echo "❌ migration banner seen ${COUNT} times — it is not idempotent"; exit 1; }
+          echo "✅ migration is idempotent across restarts"
+
+      # -----------------------------------------------------------------------
       # Trivy CVE scan (non-blocking). Scans the locally-loaded amd64 smoke
       # image built above for HIGH/CRITICAL vulnerabilities and publishes the
       # findings to the repo's Security tab. Report-only: exit-code stays 0 so

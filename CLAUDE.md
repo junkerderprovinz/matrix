@@ -30,7 +30,9 @@ repo, not here.
 Dockerfile                       Multi-stage: element-web + ketesa + mas -> synapse
 rootfs/                          Overlay copied into the image (COPY rootfs/ /)
   etc/cont-init.d/               s6 one-shot init (00-banner.sh, 10-config.sh,
-                                 20-mas.sh — order matters, 20 patches 10's output)
+                                 20-mas.sh, 25-mas-migrate.sh — order matters:
+                                 20 patches 10's output, 25 runs while Synapse
+                                 is still stopped, which is what syn2mas needs)
   etc/services.d/*/run           s6 long-running services (synapse, coturn,
                                  lighttpd, mas, admin-bootstrap, matrix-ready)
   defaults/*.tmpl                envsubst config templates (homeserver overrides,
@@ -129,6 +131,18 @@ Recipes are in the `justfile` (`just --list`). The real commands underneath:
   ConfigError (Synapse will not start), and `experimental_features` may appear
   only once in the merged YAML — `20-mas.sh` strips both from the base render
   before appending. `mas-cli syn2mas` never writes to Synapse's database.
+- **syn2mas needs BOTH Synapse config files.** The database connection is
+  rendered into `homeserver-overrides.yaml`, so `--synapse-config` must be passed
+  twice (base then overrides). With only `homeserver.yaml` it reads the generated
+  SQLite defaults and migrates from the wrong database.
+- **The migration lives in cont-init on purpose.** `25-mas-migrate.sh` runs while
+  s6 has not started the synapse service, so the offline window syn2mas requires
+  is structural rather than an instruction the operator has to remember. It is
+  gated on `AUTH_MIGRATE`, guarded by a `/data/mas/.migrated` marker, and exits
+  non-zero on any failure so the container stops instead of coming up
+  half-migrated. CI proves the migrated account still logs in with its original
+  password — a migration that silently breaks password hashes looks successful in
+  every log line.
 - **`S6_BEHAVIOUR_IF_STAGE2_FAILS=2` is load-bearing.** s6-overlay v3 defaults it
   to 0 ("continue silently"), which made every `exit 1` guard in cont-init.d
   decorative — 10-config.sh claimed to halt on a broken config while s6 started
