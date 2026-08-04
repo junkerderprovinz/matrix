@@ -196,6 +196,7 @@ Everything else has sensible defaults. The most useful optional variables:
 |---|---|---|
 | `ENABLE_REGISTRATION` | `false` | Open self-service signup + Element's **Create Account** button. Leave it off unless you enjoy spam signups — [section 10](#10-generating-registration-tokens) has the token-based alternative. |
 | `TURN_DOMAIN` / `TURN_PORT` | `SERVER_NAME` / `3478` | Route voice/video (TURN) through a dedicated subdomain and/or a remapped port — e.g. to take coturn around your reverse proxy. |
+| `TURN_TLS_ENABLE` | `auto` | TURN over TLS (`turns:`). `auto` = on when a certificate is mounted at `/data/certs`; `true`/`false` force it. See [Troubleshooting → TURN over TLS](#turn-over-tls-optional). |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | — | Auto-create the first server admin (or promote an existing account) on the next start — see [section 9](#9-creating-the-first-admin-user). |
 
 ### Step 4 — Start the container and check the logs
@@ -767,8 +768,13 @@ tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 
 #### TURN over TLS (optional)
 
-To enable TURN over TLS on port 5349, mount a directory containing `fullchain.pem` and
-`privkey.pem` to `/data/certs/` inside the container. The filenames must be exactly:
+TURN over TLS (the `turns:` scheme) is **enabled automatically** when you mount a certificate
+into the container. Put `fullchain.pem` + `privkey.pem` in a folder and map it to `/data/certs`.
+On the next start the container switches coturn's TLS listener on (port 5349) and adds matching
+`turns:` URIs to Synapse; with no certificate it stays on plain TURN (port 3478). Watch the
+container log for `TURN over TLS = ENABLED` / `= off`.
+
+The filenames must be exactly:
 
 - `/data/certs/fullchain.pem`
 - `/data/certs/privkey.pem`
@@ -785,8 +791,23 @@ cp /mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-1/privkey.pem \
 ```
 
 Then set the **TURN-TLS Certs** path in the Unraid template to `/mnt/user/appdata/matrix/certs`
-(mapped to `/data/certs` inside the container). If the cert files are missing, plain TURN on
-port 3478 still works — TLS is entirely optional.
+(mapped to `/data/certs` inside the container), and forward TLS port **5349** (TCP+UDP) to the
+Unraid host. If the cert files are missing, plain TURN on port 3478 still works, so TLS is
+entirely optional.
+
+Advanced overrides (rarely needed):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TURN_TLS_ENABLE` | `auto` | `auto` turns TLS on when a cert is present; `true` forces it on; `false` forces it off |
+| `TURN_TLS_PORT` | `5349` | Public port advertised for `turns:` (change if you remap it) |
+| `TURN_TLS_CERT` / `TURN_TLS_KEY` | `/data/certs/fullchain.pem` / `/data/certs/privkey.pem` | Certificate + key paths inside the container |
+
+> [!IMPORTANT]
+> The certificate must be **valid for `TURN_DOMAIN`** (the host clients reach TURN at, default
+> `SERVER_NAME`). A client rejects a `turns:` server whose certificate name does not match the
+> host it dialled, and calls then fail even though plain TURN would work. Plain `turn:` on 3478
+> is always kept alongside `turns:` as a fallback, so a client that cannot use TLS still connects.
 
 <br>
 

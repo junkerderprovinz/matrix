@@ -78,6 +78,35 @@ TZ="${TZ:-Europe/Vienna}"
 # (defaults to the Matrix domain on 3478).
 TURN_DOMAIN="${TURN_DOMAIN:-$SERVER_NAME}"
 TURN_PORT="${TURN_PORT:-3478}"
+# TURN over TLS (turns:). Enabled automatically when a certificate is mounted at
+# /data/certs (fullchain.pem + privkey.pem); set TURN_TLS_ENABLE=false to force
+# it off, or TURN_TLS_ENABLE=true to require it. coturn uses 'cert'/'pkey' (no
+# 'tls-' prefix) and 'tls-listening-port'; Synapse gets matching turns: URIs.
+TURN_TLS_CERT="${TURN_TLS_CERT:-/data/certs/fullchain.pem}"
+TURN_TLS_KEY="${TURN_TLS_KEY:-/data/certs/privkey.pem}"
+TURN_TLS_PORT="${TURN_TLS_PORT:-5349}"
+case "${TURN_TLS_ENABLE:-auto}" in
+    false|False|FALSE|0|no|No|NO)  TURN_TLS_ON="false" ;;
+    true|True|TRUE|1|yes|Yes|YES)  TURN_TLS_ON="true" ;;
+    *) if [ -f "${TURN_TLS_CERT}" ] && [ -f "${TURN_TLS_KEY}" ]; then TURN_TLS_ON="true"; else TURN_TLS_ON="false"; fi ;;
+esac
+if [ "${TURN_TLS_ON}" = "true" ]; then
+    if [ ! -f "${TURN_TLS_CERT}" ] || [ ! -f "${TURN_TLS_KEY}" ]; then
+        log_warn "TURN over TLS requested but cert/key missing (${TURN_TLS_CERT}, ${TURN_TLS_KEY})"
+        log_warn "coturn's TLS listener will fail until they are mounted (see the README 'TURN over TLS' section)."
+    fi
+    TURN_TLS_CONF="$(printf 'tls-listening-port=%s\ncert=%s\npkey=%s' "${TURN_TLS_PORT}" "${TURN_TLS_CERT}" "${TURN_TLS_KEY}")"
+    # turns: first (preferred), plain turn: kept as fallback for clients/networks
+    # that cannot use TLS.
+    TURN_URIS="$(printf '  - "turns:%s:%s?transport=tcp"\n  - "turns:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=tcp"' \
+        "${TURN_DOMAIN}" "${TURN_TLS_PORT}" "${TURN_DOMAIN}" "${TURN_TLS_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}")"
+    log_info "TURN over TLS  = ENABLED (turns:${TURN_DOMAIN}:${TURN_TLS_PORT}, cert ${TURN_TLS_CERT})"
+else
+    TURN_TLS_CONF="$(printf 'no-tls\nno-dtls')"
+    TURN_URIS="$(printf '  - "turn:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=tcp"' \
+        "${TURN_DOMAIN}" "${TURN_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}")"
+    log_info "TURN over TLS  = off (mount fullchain.pem + privkey.pem at /data/certs to enable)"
+fi
 # ENABLE_REGISTRATION drives both Synapse (enable_registration) and Element's
 # "Create Account" button (UIFeature.registration). Normalise to a literal
 # true/false so it is valid in both YAML and JSON.
@@ -308,7 +337,7 @@ case "${ENABLE_FEDERATION}" in
 esac
 
 log_info "Rendering homeserver-overrides.yaml from template ..."
-export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION
+export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION TURN_URIS
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
@@ -345,7 +374,7 @@ TURN_TMPL="/defaults/turnserver.conf.tmpl"
 TURN_OUT="/data/turnserver.conf"
 
 log_info "Rendering turnserver.conf from template ..."
-export SERVER_NAME TURN_SECRET
+export SERVER_NAME TURN_SECRET TURN_TLS_CONF
 envsubst < "${TURN_TMPL}" > "${TURN_OUT}"
 chmod 640 "${TURN_OUT}"
 
