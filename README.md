@@ -678,6 +678,12 @@ been started and anyone has signed in. **Back up first.**
    Element's sign-in then fails with an unhelpful error. The container refuses to start if
    `AUTH_PUBLIC_BASE` is not `https://`.
 
+   > In Nginx Proxy Manager, leave **Block Common Exploits off** on this host. It interferes with OIDC
+   > redirects and the symptom is a bare `403` during sign-in, with nothing useful in any log.
+
+   A separate hostname is what upstream documents and what this container is tested against. Serving MAS
+   under a subpath of your Matrix host is not supported here.
+
 3. **A routing rule on your Matrix host.** Under delegation, Synapse no longer serves the login endpoints;
    MAS does. Without this rule Element fails immediately with `M_UNRECOGNIZED`. In NPM, add to the
    **Advanced** tab of your `matrix.yourdomain.tld` host, *above* the existing location block:
@@ -705,6 +711,11 @@ Set these in the template (all under *Advanced*):
 
 Start the container. The log ends with **AUTH IS READY** next to the usual MATRIX IS READY line. If
 something is missing, the container stops with a `[mas] ERROR:` line explaining exactly what.
+
+> **Set these in the Unraid template, not just on the running container.** Unraid rebuilds the container
+> from its template every time you hit Apply. If the template does not carry the `AUTH_*` variables, an
+> Apply silently turns delegated auth back off — while your accounts now live in the auth service, which
+> locks everyone out until you put them back.
 
 ### Migrating existing accounts
 
