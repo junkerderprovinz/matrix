@@ -684,7 +684,24 @@ been started and anyone has signed in. **Back up first.**
    A separate hostname is what upstream documents and what this container is tested against. Serving MAS
    under a subpath of your Matrix host is not supported here.
 
-3. **A routing rule on your Matrix host.** Under delegation, Synapse no longer serves the login endpoints;
+3. **Your Matrix client must be on an HTTPS origin.** This catches people out, because it is not obvious
+   that enabling delegated auth changes anything about the *client*. It does: Element registers itself
+   with the auth service over OIDC, and the auth service rejects any `http://` origin outright. If you
+   have been opening the bundled Element at `http://UNRAID-IP:8080/element/`, it will now load to a
+   spinner and stop there, with the rejection visible only in the browser console.
+
+   Any of these fixes it:
+
+   - Use **Element Desktop**, which has no browser origin and needs no extra host
+   - Give the bundled Element its own **HTTPS proxy host**, e.g. `element.yourdomain.tld` to
+     Unraid-IP `:8080`
+   - Point **app.element.io** at your homeserver
+
+   **Do not serve Element from your Matrix hostname** (`matrix.yourdomain.tld/element/`) to save a proxy
+   host. Element's own security notes advise against sharing an origin with the homeserver, because
+   user-uploaded media served from the Matrix API would then sit on the same origin as the client.
+
+4. **A routing rule on your Matrix host.** Under delegation, Synapse no longer serves the login endpoints;
    MAS does. Without this rule Element fails immediately with `M_UNRECOGNIZED`. In NPM, add to the
    **Advanced** tab of your `matrix.yourdomain.tld` host, *above* the existing location block:
 
