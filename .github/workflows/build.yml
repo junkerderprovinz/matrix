@@ -486,8 +486,17 @@ jobs:
             fi
             sleep 1
           done
-          docker logs mx-mig 2>&1 | grep -q "ACCOUNTS MIGRATED" \
-            || { echo "❌ migration banner missing"; docker logs mx-mig || true; exit 1; }
+          # Poll rather than assert once: container stdout reaches `docker logs`
+          # through the s6 logging chain, which lags the script that wrote it by a
+          # moment. A single grep here raced that lag and reported a missing
+          # banner that was in the log a fraction of a second later.
+          found=0
+          for i in $(seq 1 30); do
+            if docker logs mx-mig 2>&1 | grep -q "ACCOUNTS MIGRATED"; then found=1; break; fi
+            sleep 1
+          done
+          [ "$found" = "1" ] \
+            || { echo "❌ migration banner never appeared"; docker logs mx-mig || true; exit 1; }
           echo "✅ migration ran and reported success"
           docker exec mx-mig test -f /data/mas/.migrated \
             || { echo "❌ migration marker not written — it would run again on next start"; exit 1; }
@@ -498,13 +507,25 @@ jobs:
             curl -fsS -o /dev/null http://localhost:18190/.well-known/openid-configuration && break
             sleep 1
           done
-          TOKEN=$(curl -fsS -X POST http://localhost:18190/_matrix/client/v3/login \
-            -H 'Content-Type: application/json' \
-            -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"migtest"},"password":"MigTest-2026!pw"}' \
-            2>/dev/null | grep -o '"access_token":"[^"]*"' || true)
+          TOKEN=""
+          for i in $(seq 1 20); do
+            TOKEN=$(curl -fsS -X POST http://localhost:18190/_matrix/client/v3/login \
+              -H 'Content-Type: application/json' \
+              -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"migtest"},"password":"MigTest-2026!pw"}' \
+              2>/dev/null | grep -o '"access_token":"[^"]*"' || true)
+            [ -n "${TOKEN}" ] && break
+            sleep 2
+          done
           [ -n "${TOKEN}" ] \
             || { echo "❌ migrated account cannot log in — every user would be locked out"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migrated account logs in against the auth service with its original password"
+          # A migration that accepts anything would pass the check above too
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:18190/_matrix/client/v3/login \
+            -H 'Content-Type: application/json' \
+            -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"migtest"},"password":"definitely-not-the-password"}')
+          [ "${CODE}" = "403" ] \
+            || { echo "❌ wrong password returned ${CODE} instead of 403"; exit 1; }
+          echo "✅ wrong passwords are still rejected"
 
           echo "--- phase 4: restarting must not migrate a second time ---"
           docker restart mx-mig >/dev/null
@@ -512,9 +533,15 @@ jobs:
             curl -fsS -o /dev/null http://localhost:18109/health && break
             sleep 1
           done
+          # Give the second boot's output time to reach the log before counting,
+          # for the same buffering reason as above.
+          for i in $(seq 1 20); do
+            docker logs mx-mig 2>&1 | grep -q "already migrated" && break
+            sleep 1
+          done
           COUNT=$(docker logs mx-mig 2>&1 | grep -c "ACCOUNTS MIGRATED" || true)
           [ "${COUNT}" = "1" ] \
-            || { echo "❌ migration banner seen ${COUNT} times — it is not idempotent"; exit 1; }
+            || { echo "❌ migration banner seen ${COUNT} times — it is not idempotent"; docker logs mx-mig | tail -30 || true; exit 1; }
           echo "✅ migration is idempotent across restarts"
 
       # -----------------------------------------------------------------------
