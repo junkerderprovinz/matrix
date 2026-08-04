@@ -748,6 +748,24 @@ docker exec -it Matrix mas-cli manage issue-compatibility-token --config /data/m
     <username> --yes-i-want-to-grant-synapse-admin-privileges
 ```
 
+### If the QR code errors with "Something went wrong"
+
+The button is enabled, you click it, and Element reports *"An unexpected error occurred. The
+request to connect your other device has been cancelled."* That means the rendezvous channel could
+not be reached, and there is one overwhelmingly likely cause.
+
+**Synapse hands clients the rendezvous URL built from `public_baseurl`**, which this container derives
+from your `SERVER_NAME` as `https://SERVER_NAME/`. If clients actually reach your homeserver at some
+other address — a non-standard port, a different hostname, a tunnel — Element dutifully tries the
+advertised URL, gets a connection error, and cancels. Everything else looks perfectly healthy, which is
+what makes it confusing.
+
+Check what the browser tried in the developer console. A failed request to
+`/_synapse/client/rendezvous/...` on an address that is not the one you use is the confirmation.
+
+Make sure `https://SERVER_NAME/` really is where clients reach Synapse, and that your reverse proxy
+forwards `/_synapse/client/` (not just `/_matrix`) to port 8008.
+
 ### Turning it back off
 
 Setting `Delegated Auth` back to `false` returns Synapse to handling its own logins. **If you already
