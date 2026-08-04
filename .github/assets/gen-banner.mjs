@@ -56,7 +56,7 @@ const THEMES = [
 const LH = 508; // [m] logo box (icon.png is square with internal padding)
 const LW = LH;
 let nameSize = 132; // house banner standard (auto-shrinks below if too wide)
-const claimSize = 44, gap = 70, lineGap = 8;
+let claimSize = 44; const gap = 70, lineGap = 8;
 const MAX_GROUP = W - 160;
 // ---------------------------------------------------------------------------
 
@@ -116,7 +116,8 @@ const claimW = glyphRunWidth(claimFont, CLAIM, claimSize);
 const groupW = LW + gap + Math.max(nameW, claimW);
 const startX = 165; // left-anchored (house banner standard)
 const LX = startX - 55, LY = (H - LH) / 2; // -55 cancels icon.png's internal pad so the visible mark left-anchors at startX (165)
-const textX = startX + LW + gap;
+const textX = startX + LW - 110 + gap; // -110 cancels the icon.png L+R padding (cf. LX -55) so text meets the VISIBLE mark
+while (claimSize > 24 && textX + glyphRunWidth(claimFont, CLAIM, claimSize) > W - 40) claimSize -= 1; // keep the long claim on-canvas
 
 const nameAsc = nameFont.ascender * em(nameFont, nameSize);
 const nameDesc = -nameFont.descender * em(nameFont, nameSize);
