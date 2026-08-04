@@ -26,8 +26,9 @@ http:
   # Element Web's OIDC-native flow uses (verified: it fails with
   # "invalid_redirect_uri: invalid client_uri; invalid redirect_uri").
   # 20-mas.sh refuses to start the container if this is not https://.
+  # `issuer` is deliberately not set: MAS defaults it to public_base, and having
+  # the same URL in two places is a trap the first time someone edits one of them.
   public_base: "${AUTH_PUBLIC_BASE}"
-  issuer: "${AUTH_PUBLIC_BASE}"
   listeners:
     # Public listener. 8090, not MAS's default 8080, which lighttpd already owns
     # inside this container.

@@ -53,7 +53,7 @@ const THEMES = [
   { suffix: "", bg: "#ffffff", name: "#1f2328", claim: "#5a5d5e", logoTint: null },
   { suffix: "-dark", bg: "#0d1117", name: "#e6edf3", claim: "#9aa4ad", logoTint: "#e6edf3" },
 ];
-const LH = 300; // [m] logo box (icon.png is square with internal padding)
+const LH = 508; // [m] logo box (icon.png is square with internal padding)
 const LW = LH;
 let nameSize = 132; // house banner standard (auto-shrinks below if too wide)
 const claimSize = 44, gap = 70, lineGap = 8;
@@ -115,7 +115,7 @@ const nameW = glyphRunWidth(nameFont, NAME, nameSize);
 const claimW = glyphRunWidth(claimFont, CLAIM, claimSize);
 const groupW = LW + gap + Math.max(nameW, claimW);
 const startX = 165; // left-anchored (house banner standard)
-const LX = startX, LY = (H - LH) / 2;
+const LX = startX - 55, LY = (H - LH) / 2; // -55 cancels icon.png's internal pad so the visible mark left-anchors at startX (165)
 const textX = startX + LW + gap;
 
 const nameAsc = nameFont.ascender * em(nameFont, nameSize);
