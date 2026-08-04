@@ -50,13 +50,13 @@ const W = 1600, H = 500;
 // dark.logoTint recolours the verbatim-embedded icon.png; light embeds it as-is
 // (its opaque white box is invisible on the white background).
 const THEMES = [
-  { suffix: "", bg: "#ffffff", name: "#1a1a1a", claim: "#5a5d5e", logoTint: null },
+  { suffix: "", bg: "#ffffff", name: "#1f2328", claim: "#5a5d5e", logoTint: null },
   { suffix: "-dark", bg: "#0d1117", name: "#e6edf3", claim: "#9aa4ad", logoTint: "#e6edf3" },
 ];
-const LH = 420; // [m] logo box (icon.png is square with internal padding)
+const LH = 300; // [m] logo box (icon.png is square with internal padding)
 const LW = LH;
-let nameSize = 230; // shrunk below to fit
-const claimSize = 42, gap = 56, lineGap = 22;
+let nameSize = 132; // house banner standard (auto-shrinks below if too wide)
+const claimSize = 44, gap = 70, lineGap = 8;
 const MAX_GROUP = W - 160;
 // ---------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ while (nameSize > 100 && LW + gap + glyphRunWidth(nameFont, NAME, nameSize) > MA
 const nameW = glyphRunWidth(nameFont, NAME, nameSize);
 const claimW = glyphRunWidth(claimFont, CLAIM, claimSize);
 const groupW = LW + gap + Math.max(nameW, claimW);
-const startX = (W - groupW) / 2;
+const startX = 165; // left-anchored (house banner standard)
 const LX = startX, LY = (H - LH) / 2;
 const textX = startX + LW + gap;
 
