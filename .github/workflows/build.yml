@@ -214,6 +214,13 @@ jobs:
       # Synapse boot crash before :latest, including the hourly auto-builds).
       # amd64-only on purpose: Synapse's first-run key generation + migrations
       # are too slow under arm64 QEMU emulation for a CI gate.
+      #
+      # arm64 is not left unchecked, though. The Dockerfile runs
+      # `ldd /usr/local/bin/mas-cli && mas-cli --version` as a build step, which
+      # executes once per target platform during the multi-arch build below. A
+      # MAS binary that cannot resolve its shared libraries on arm64 therefore
+      # fails the push rather than reaching a user — which was the one arch-
+      # specific risk in pulling a binary from a foreign base image.
       # -----------------------------------------------------------------------
       - name: Build amd64 image for smoke test
         if: steps.check.outputs.skip != 'true'
@@ -274,6 +281,26 @@ jobs:
                 cleanup; exit 1
               fi
               echo "✅ Synapse is on PostgreSQL (${TABLES} public tables, no SQLite db)"
+              # The opt-in contract: with AUTH_ENABLED unset, the rendered Synapse
+              # config must look exactly as it did before MAS existed. Not
+              # "delegation disabled" — absent. This is the assertion that protects
+              # every existing install from an unattended image update.
+              if docker exec mx-smoke grep -q "matrix_authentication_service" /data/homeserver-overrides.yaml; then
+                echo "❌ MAS config leaked into the overrides with AUTH_ENABLED unset"
+                docker exec mx-smoke cat /data/homeserver-overrides.yaml || true
+                cleanup; exit 1
+              fi
+              if ! docker exec mx-smoke grep -q "^experimental_features: {}$" /data/homeserver-overrides.yaml \
+                 || ! docker exec mx-smoke grep -q "^enable_registration:" /data/homeserver-overrides.yaml; then
+                echo "❌ overrides differ from the pre-MAS shape with AUTH_ENABLED unset"
+                docker exec mx-smoke cat /data/homeserver-overrides.yaml || true
+                cleanup; exit 1
+              fi
+              if docker exec mx-smoke sh -c 'netstat -tln 2>/dev/null | grep -q ":8090 "'; then
+                echo "❌ MAS is listening on 8090 although AUTH_ENABLED is unset"
+                cleanup; exit 1
+              fi
+              echo "✅ MAS is inert (no config, no listener) with AUTH_ENABLED unset"
               cleanup
               exit 0
             fi
@@ -287,6 +314,95 @@ jobs:
           docker logs mx-smoke || true
           cleanup
           exit 1
+
+      # -----------------------------------------------------------------------
+      # Second smoke gate: delegated auth ON.
+      #
+      # The first gate proves the default (MAS off) path. This one proves the
+      # opt-in actually works, because a feature nobody can boot is worse than no
+      # feature. It asserts the three things Element checks before it will offer
+      # QR code login, so a regression here is caught in CI rather than by a user
+      # staring at a greyed-out button:
+      #   - Synapse serves /_matrix/client/v1/auth_metadata (only exists under MAS)
+      #   - that metadata advertises the device_code grant
+      #   - /_matrix/client/versions advertises org.matrix.msc4108
+      # -----------------------------------------------------------------------
+      - name: Smoke test — delegated auth (AUTH_ENABLED=true) must boot and offer QR login
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm -f mx-auth mx-auth-pg >/dev/null 2>&1 || true
+            docker network rm mx-auth-net >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create mx-auth-net
+          docker run -d --name mx-auth-pg --network mx-auth-net \
+            -e POSTGRES_USER=synapse -e POSTGRES_PASSWORD=smoke \
+            -e POSTGRES_DB=synapse \
+            -e POSTGRES_INITDB_ARGS="--encoding=UTF-8 --lc-collate=C --lc-ctype=C" \
+            postgres:16-alpine
+          # MAS needs its own, empty database — it cannot share Synapse's.
+          for i in $(seq 1 60); do
+            if docker exec -e PGPASSWORD=smoke mx-auth-pg pg_isready -h 127.0.0.1 -U synapse >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec -e PGPASSWORD=smoke mx-auth-pg psql -h 127.0.0.1 -U synapse -d postgres \
+            -c "CREATE DATABASE mas TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C';"
+          docker run -d --name mx-auth --network mx-auth-net -p 18008:8008 -p 18090:8090 \
+            -e SERVER_NAME=smoke.local \
+            -e POSTGRES_HOST=mx-auth-pg -e POSTGRES_USER=synapse \
+            -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=synapse \
+            -e AUTH_ENABLED=true \
+            -e AUTH_PUBLIC_BASE=https://auth.smoke.local/ \
+            -e AUTH_POSTGRES_DB=mas \
+            matrix:smoke-amd64
+          for i in $(seq 1 180); do
+            if curl -fsS -o /dev/null http://localhost:18008/health; then
+              echo "✅ Synapse /health responded after ${i}s (delegated auth)"
+              break
+            fi
+            if [ -z "$(docker ps -q --filter name=mx-auth$)" ]; then
+              echo "❌ container exited early — logs:"; docker logs mx-auth || true; exit 1
+            fi
+            sleep 1
+          done
+          # MAS itself
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:18090/.well-known/openid-configuration; then
+              echo "✅ MAS discovery served after ${i}s"; break
+            fi
+            [ "$i" = "60" ] && { echo "❌ MAS never served its discovery document"; docker logs mx-auth || true; exit 1; }
+            sleep 1
+          done
+          curl -fsS http://localhost:18090/.well-known/openid-configuration \
+            | grep -q 'urn:ietf:params:oauth:grant-type:device_code' \
+            || { echo "❌ MAS does not advertise the device_code grant — QR login cannot work"; exit 1; }
+          echo "✅ MAS advertises the device_code grant"
+          # Synapse-side discovery, the endpoint Element actually asks
+          curl -fsS http://localhost:18008/_matrix/client/v1/auth_metadata | grep -q '"issuer"' \
+            || { echo "❌ /_matrix/client/v1/auth_metadata missing — auth is not delegated"; exit 1; }
+          echo "✅ Synapse serves auth_metadata"
+          curl -fsS http://localhost:18008/_matrix/client/versions | grep -q '"org.matrix.msc4108":true' \
+            || { echo "❌ org.matrix.msc4108 not advertised — Element would grey out the QR button"; exit 1; }
+          echo "✅ Synapse advertises org.matrix.msc4108"
+          # MAS really used its own database, and did not touch Synapse's
+          MAS_TABLES=$(docker exec -e PGPASSWORD=smoke mx-auth-pg psql -h 127.0.0.1 -U synapse -d mas -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" | tr -d '[:space:]')
+          [ -n "${MAS_TABLES}" ] && [ "${MAS_TABLES}" != "0" ] \
+            || { echo "❌ MAS created no tables in its own database"; exit 1; }
+          echo "✅ MAS migrated its own database (${MAS_TABLES} tables)"
+          # Secrets must survive a restart, or every issued token dies on reboot
+          BEFORE=$(docker exec mx-auth sha256sum /data/mas/encryption.secret /data/mas/keys/rsa.key)
+          docker restart mx-auth >/dev/null
+          for i in $(seq 1 180); do
+            curl -fsS -o /dev/null http://localhost:18008/health && break
+            sleep 1
+          done
+          AFTER=$(docker exec mx-auth sha256sum /data/mas/encryption.secret /data/mas/keys/rsa.key)
+          [ "${BEFORE}" = "${AFTER}" ] \
+            || { echo "❌ MAS secrets were regenerated on restart — every encrypted value would be lost"; exit 1; }
+          echo "✅ MAS secrets persisted across a restart"
 
       # -----------------------------------------------------------------------
       # Trivy CVE scan (non-blocking). Scans the locally-loaded amd64 smoke

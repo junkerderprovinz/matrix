@@ -1,0 +1,42 @@
+#!/command/with-contenv sh
+# shellcheck shell=sh
+# =============================================================================
+# s6 service: mas — Matrix Authentication Service
+#
+# Only actually runs when AUTH_ENABLED=true. Otherwise it parks on
+# `sleep infinity`, which is the established idiom in this image (see
+# matrix-ready) for "supervised but intentionally idle": exiting instead would
+# make s6 restart the script forever and fill the log with noise.
+#
+# START ORDER: none required. Synapse's MAS config is validated locally at boot
+# (synapse/config/mas.py never calls out to MAS), and MAS runs its own database
+# migrations on startup, so neither has to wait for the other. What DOES have to
+# be true is that 20-mas.sh has already written the config — hence the short wait
+# below rather than an assumption about s6 ordering.
+# =============================================================================
+
+PUID="${PUID:-99}"
+PGID="${PGID:-100}"
+
+case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on) : ;;
+    *) exec sleep infinity ;;
+esac
+
+CONFIG=/data/mas/config.yaml
+
+# 20-mas.sh writes this during cont-init, i.e. before any service starts. The
+# wait is a guard against the file being absent because that script bailed out,
+# not a race we expect to lose.
+i=0
+while [ ! -s "${CONFIG}" ]; do
+    i=$((i + 1))
+    if [ "${i}" -gt 30 ]; then
+        echo "[mas] FATAL: ${CONFIG} was never written — check the [mas] lines earlier in this log." >&2
+        exit 1
+    fi
+    sleep 1
+done
+
+echo "[mas] Starting Matrix Authentication Service on port 8090 ..."
+exec gosu "${PUID}:${PGID}" /usr/local/bin/mas-cli server --config "${CONFIG}"

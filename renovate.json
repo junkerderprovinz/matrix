@@ -37,6 +37,14 @@
       "labels": ["upstream-bump", "synapse-admin"]
     },
     {
+      "description": "Matrix Authentication Service — auth is load-bearing, keep manual",
+      "matchPackageNames": ["ghcr.io/element-hq/matrix-authentication-service"],
+      "groupName": "MAS",
+      "commitMessageTopic": "Matrix Authentication Service",
+      "commitMessagePrefix": "feat:",
+      "labels": ["upstream-bump", "mas"]
+    },
+    {
       "description": "s6-overlay — auto-merge minor/patch (build tool, low risk)",
       "matchPackageNames": ["just-containers/s6-overlay"],
       "groupName": "s6-overlay",
@@ -92,6 +100,16 @@
         "ARG SYNAPSE_ADMIN_VERSION=(?<currentValue>v[^\\s]+)"
       ],
       "depNameTemplate": "ghcr.io/etkecc/ketesa",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Track Matrix Authentication Service version from ARG MAS_VERSION=<tag>",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "ARG MAS_VERSION=(?<currentValue>[^\\s]+)"
+      ],
+      "depNameTemplate": "ghcr.io/element-hq/matrix-authentication-service",
       "datasourceTemplate": "docker"
     },
     {

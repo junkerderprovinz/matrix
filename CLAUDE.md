@@ -15,6 +15,7 @@ plug-and-play Matrix homeserver on Unraid:
 | Element Web   | Web client (static, from upstream image)| 8080/element/       |
 | Ketesa        | Admin UI (static, from upstream image) | 8080/admin/          |
 | lighttpd      | Serves the two static web apps         | 8080                 |
+| MAS           | Auth service, **only if AUTH_ENABLED**  | 8090 (health 8091)  |
 | Prometheus    | Synapse metrics endpoint               | 9090                 |
 
 s6-overlay v3 is PID 1 and supervises the services. PostgreSQL is **external**
@@ -26,13 +27,15 @@ repo, not here.
 ## Layout
 
 ```
-Dockerfile                       Multi-stage: element-web + ketesa -> synapse
+Dockerfile                       Multi-stage: element-web + ketesa + mas -> synapse
 rootfs/                          Overlay copied into the image (COPY rootfs/ /)
-  etc/cont-init.d/               s6 one-shot init (00-banner.sh, 10-config.sh)
+  etc/cont-init.d/               s6 one-shot init (00-banner.sh, 10-config.sh,
+                                 20-mas.sh — order matters, 20 patches 10's output)
   etc/services.d/*/run           s6 long-running services (synapse, coturn,
-                                 lighttpd, admin-bootstrap, matrix-ready)
+                                 lighttpd, mas, admin-bootstrap, matrix-ready)
   defaults/*.tmpl                envsubst config templates (homeserver overrides,
-                                 element-config, turnserver) + lighttpd.conf
+                                 element-config, turnserver, mas-config,
+                                 mas-overrides) + lighttpd.conf
   usr/local/bin/print-banner.sh  Prints the init-log banner
 .github/workflows/               build.yml, lint.yml, release.yml
 .github/assets/                  Banner/logo/icon sources + gen-banner.mjs, screenshots
@@ -115,3 +118,18 @@ Recipes are in the `justfile` (`just --list`). The real commands underneath:
 - **Trivy is report-only** (`exit-code: 0`); unfixed upstream CVEs do not gate
   the build.
 - **Commits:** English in the repo, no AI attribution.
+- **Delegated auth is opt-in, and that is a hard contract.** With `AUTH_ENABLED`
+  unset or false, `20-mas.sh` must leave the rendered `homeserver-overrides.yaml`
+  byte-for-byte as it was before MAS existed — not "delegation disabled", absent.
+  CI asserts this. Users pull `:latest` unattended; a feature that rearranges
+  their auth on a routine update would be a catastrophe. Every env read uses
+  `${AUTH_X:-default}` (never `${AUTH_X-default}`) because a blank Unraid
+  template field arrives as `-e AUTH_ENABLED=`, i.e. set but empty.
+- **Synapse traps under delegation:** `enable_registration: true` is a hard
+  ConfigError (Synapse will not start), and `experimental_features` may appear
+  only once in the merged YAML — `20-mas.sh` strips both from the base render
+  before appending. `mas-cli syn2mas` never writes to Synapse's database.
+- **`S6_BEHAVIOUR_IF_STAGE2_FAILS=2` is load-bearing.** s6-overlay v3 defaults it
+  to 0 ("continue silently"), which made every `exit 1` guard in cont-init.d
+  decorative — 10-config.sh claimed to halt on a broken config while s6 started
+  Synapse anyway. Do not remove it.

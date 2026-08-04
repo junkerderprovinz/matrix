@@ -30,6 +30,33 @@ if [ ! -f "$CRED_FILE" ]; then
     exec sleep infinity
 fi
 
+# ---------------------------------------------------------------- MAS mode ---
+# Under delegated auth this whole service is inoperative, and silently so, which
+# is the dangerous part. Both of its mechanisms are dead:
+#
+#   * register_new_matrix_user posts to /_synapse/admin/v1/register, and Synapse
+#     does not register that servlet when auth is delegated.
+#   * the Postgres fallback (UPDATE users SET admin=1) has no effect either,
+#     because synapse/api/auth/mas.py authorises on the token scope
+#     urn:synapse:admin:*, not on the users.admin column.
+#
+# So rather than retrying against endpoints that will never answer, hand the user
+# the commands that do work. The credential file is left in place: switching
+# AUTH_ENABLED back off should still bootstrap the admin.
+case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on)
+        log "AUTH_ENABLED is on — ADMIN_USER/ADMIN_PASSWORD cannot be applied through Synapse."
+        log "Under delegated auth, accounts and admin rights live in MAS. Use instead:"
+        log "  docker exec -it <container> mas-cli manage register-user --config /data/mas/config.yaml \\"
+        log "      --yes --admin --password '<password>' <username>"
+        log "  docker exec -it <container> mas-cli manage promote-admin --config /data/mas/config.yaml <username>"
+        log "For an admin token that the admin UI accepts:"
+        log "  docker exec -it <container> mas-cli manage issue-compatibility-token \\"
+        log "      --config /data/mas/config.yaml <username> --yes-i-want-to-grant-synapse-admin-privileges"
+        exec sleep infinity
+        ;;
+esac
+
 # Wait for Synapse to respond on /health (max 120s)
 log "Waiting for Synapse to become ready on http://127.0.0.1:8008/health ..."
 i=0

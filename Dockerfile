@@ -23,6 +23,7 @@
 ARG SYNAPSE_VERSION=v1.156.0
 ARG ELEMENT_VERSION=v1.12.23
 ARG SYNAPSE_ADMIN_VERSION=v1.4.0
+ARG MAS_VERSION=1.22.0
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
 # -----------------------------------------------------------------------------
@@ -45,7 +46,28 @@ ARG SYNAPSE_ADMIN_VERSION
 FROM ghcr.io/etkecc/ketesa:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
 
 # -----------------------------------------------------------------------------
-# Stage 3 — Final image, based on official Synapse
+# Stage 3 — Pull the Matrix Authentication Service (MAS) binary + assets
+#
+# MAS is Element's OAuth 2.0 / OIDC provider for Matrix. It is what makes QR code
+# device linking (MSC4108) possible: Synapse refuses to start with
+# msc4108_enabled unless auth is delegated to MAS, and /_matrix/client/v1/
+# auth_metadata does not exist without it.
+#
+# It is shipped here but NOT started unless AUTH_ENABLED=true. With the switch
+# off the binary is inert dead weight (~50 MB) and the rendered Synapse config is
+# byte-for-byte what it was before MAS existed.
+#
+# The upstream image is distroless (no shell), entrypoint /usr/local/bin/mas-cli,
+# with templates, translations, assets and policy.wasm under /usr/local/share/
+# mas-cli. Both linux/amd64 and linux/arm64 are published. Its base is
+# distroless/cc-debian13 while ours is python:*-slim-trixie, so the glibc
+# generation matches — the ldd check below is what proves that per build.
+# -----------------------------------------------------------------------------
+ARG MAS_VERSION
+FROM ghcr.io/element-hq/matrix-authentication-service:${MAS_VERSION} AS mas
+
+# -----------------------------------------------------------------------------
+# Stage 4 — Final image, based on official Synapse
 # -----------------------------------------------------------------------------
 ARG SYNAPSE_VERSION
 FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
@@ -54,6 +76,7 @@ FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
 ARG SYNAPSE_VERSION
 ARG ELEMENT_VERSION
 ARG SYNAPSE_ADMIN_VERSION
+ARG MAS_VERSION
 ARG S6_OVERLAY_VERSION
 ARG TARGETARCH
 
@@ -127,6 +150,21 @@ RUN case "${TARGETARCH}" in \
 COPY --from=element-web   /app              /var/www/html/element
 COPY --from=synapse-admin /home/sws/public  /var/www/html/admin
 
+# -----------------------------------------------------------------------------
+# Matrix Authentication Service binary + its templates/assets/policy.
+#
+# The ldd check is deliberate and must not be dropped: MAS is built against a
+# different (distroless) base than ours, and a missing shared library would
+# otherwise only surface at runtime on a user's machine — and only on whichever
+# architecture happens to be broken. `mas-cli --version` additionally proves the
+# binary actually executes under this stage's loader on TARGETARCH.
+# -----------------------------------------------------------------------------
+COPY --from=mas /usr/local/bin/mas-cli    /usr/local/bin/mas-cli
+COPY --from=mas /usr/local/share/mas-cli  /usr/local/share/mas-cli
+RUN ldd /usr/local/bin/mas-cli \
+    && /usr/local/bin/mas-cli --version \
+    && test -f /usr/local/share/mas-cli/policy.wasm
+
 # Copy our rootfs overlay (service scripts, config templates, init scripts)
 COPY rootfs/ /
 
@@ -143,12 +181,30 @@ RUN tr -d '\r' < /usr/local/share/banner-raw.txt > /usr/local/share/banner.txt
 RUN find /etc/cont-init.d /etc/services.d \( -name "run" -o -name "*.sh" \) -print0 \
         | xargs -0 chmod +x
 
+# Make a failing cont-init script actually stop the container.
+#
+# s6-overlay v3 defaults S6_BEHAVIOUR_IF_STAGE2_FAILS to 0, "continue silently".
+# Every `exit 1` guard in cont-init.d was therefore decorative: 10-config.sh has
+# claimed since v2.1.1 to be "halting container start so the broken state is
+# visible", while s6 shrugged and started Synapse anyway on top of a config that
+# was known to be broken. Missing SERVER_NAME, a failed --generate-config or an
+# incomplete MAS setup all produced a running-but-wrong container instead of a
+# loud stop.
+#
+# 2 = stop the container. Every exit 1 in cont-init.d is a genuine
+# misconfiguration that the user has to fix, so failing visibly is strictly
+# better than limping on.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
 # Synapse stores all persistent data here: homeserver.yaml, media, uploads, keys
 VOLUME /data
 
 # Port layout:
 #   8008/tcp  — Synapse Matrix HTTP API (behind reverse proxy)
-#   8080/tcp  — lighttpd: Element Web + Synapse-Admin (well-known is served by Synapse on 8008)
+#   8080/tcp  — lighttpd: Element Web + Ketesa (well-known is served by Synapse on 8008)
+#   8090/tcp  — Matrix Authentication Service (only listening when AUTH_ENABLED=true).
+#               Deliberately NOT 8080: that is MAS's own default bind and would
+#               collide with lighttpd inside this container.
 #   3478/tcp  — coturn TURN/STUN (TCP)
 #   3478/udp  — coturn TURN/STUN (UDP)
 #   5349/tcp  — coturn TURN over TLS (TCP, optional — requires certs at /data/certs/)
@@ -156,7 +212,7 @@ VOLUME /data
 #   49160-49200/udp — coturn media relay range (must match min-port/max-port
 #                     in turnserver.conf.tmpl and the Unraid template)
 #   9090/tcp  — Prometheus metrics endpoint (/_synapse/metrics)
-EXPOSE 8008/tcp 8080/tcp 3478/tcp 3478/udp 5349/tcp 5349/udp 9090/tcp
+EXPOSE 8008/tcp 8080/tcp 8090/tcp 3478/tcp 3478/udp 5349/tcp 5349/udp 9090/tcp
 EXPOSE 49160-49200/udp
 
 # Health check: Synapse exposes a dedicated /health endpoint

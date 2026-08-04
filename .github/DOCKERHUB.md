@@ -27,6 +27,7 @@ A **wrapper around the official Synapse image** from Element (`ghcr.io/element-h
 | **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
 | **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
 | **Ketesa** | Admin interface (users, rooms, tokens), the maintained fork of Synapse-Admin | 8080/admin/ |
+| **Auth service (MAS)** | Optional, off by default. Enables QR code device linking | 8090 |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **PostgreSQL is external** — Synapse requires specific locale settings (below), and keeping the database external gives you full control over backups and performance.
