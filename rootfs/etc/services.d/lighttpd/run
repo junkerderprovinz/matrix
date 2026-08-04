@@ -2,7 +2,7 @@
 # shellcheck shell=sh
 # =============================================================================
 # s6 service: lighttpd
-# Serves Element Web and Synapse-Admin as static files on port 8080.
+# Serves Element Web and Ketesa as static files on port 8080.
 #
 # lighttpd is a lightweight HTTP server well-suited for serving static SPA
 # assets. Configuration is baked in at /defaults/lighttpd.conf (read-only).
