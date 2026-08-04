@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!--
+  Unraid Community Applications support thread for matrix.
+  Structure mirrors the sister-app threads (e.g. featherdrop, Krusader):
+  title -> subtitle -> banner -> buttons -> What is this? -> Highlights ->
+  Requirements -> Posting a bug report -> Credits -> disclaimer.
+  Open standalone in a browser, or paste into the Unraid forum editor's source.
+  Title: [Support] junkerderprovinz - matrix
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[Support] junkerderprovinz - matrix</title>
+<style>
+  body { max-width: 900px; margin: 1.5rem auto; padding: 0 1rem;
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; color: #1c1c1c; }
+  h1 { text-align: center; font-size: 1.7rem; margin-bottom: .2rem; }
+  .subtitle { text-align: center; color: #666; font-style: italic; margin-top: 0; }
+  h2 { margin-top: 1.9rem; font-size: 1.25rem; }
+  code { background: #f1f1f1; padding: .1em .35em; border-radius: 4px; font-size: .9em; }
+  a { color: #0dbd8b; }
+  ul { padding-left: 1.2rem; }
+  li { margin: .25rem 0; }
+  img { border: 0; vertical-align: middle; }
+  hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }
+  .footnote { color: #777; font-size: .9em; font-style: italic; text-align: center; margin-top: 2rem; }
+</style>
+</head>
+<body>
+
+<h1>matrix – a complete Matrix homeserver in one Unraid container</h1>
+<p class="subtitle">Text like nobody's reading. Because nobody can.</p>
+
+<p align="center">
+  <a href="https://github.com/junkerderprovinz/matrix">
+    <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/matrix-banner-logo.png" alt="matrix" width="100%">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://unraid.net/community/apps?q=matrix"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/support-buttons/install-on-unraid.svg" alt="Install on Unraid" width="240"></a>
+  &nbsp;
+  <a href="https://github.com/junkerderprovinz/matrix"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/support-buttons/view-on-github.svg" alt="View on GitHub" width="240"></a>
+  &nbsp;
+  <a href="https://buymeacoffee.com/junkerderprovinz"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/support-buttons/buy-me-a-coffee.svg" alt="Buy me a coffee" width="240"></a>
+</p>
+
+<h2>What is this?</h2>
+<p>Your own Matrix homeserver, without assembling it yourself. This is a wrapper around the
+<strong>official Synapse image</strong> that adds everything a working server actually needs:
+<strong>coturn</strong> for voice and video relay, <strong>Element Web</strong> as the client, and the
+<strong>Ketesa</strong> admin interface, all behind one lightweight web server. You fill in your domain
+and your PostgreSQL connection; the container generates every config file itself. No SSH into the
+container, no YAML editing, no hand-written TURN secrets.</p>
+<p>Because it builds <em>on top of</em> the official image rather than alongside it, Synapse security
+patches land here as soon as upstream ships them. A workflow checks hourly and rebuilds
+automatically — and no build ships blind: CI boots each freshly built image against a throwaway
+PostgreSQL and refuses to publish it unless Synapse is demonstrably running on that database.</p>
+
+<h2>Highlights</h2>
+<ul>
+  <li><strong>Everything in one container</strong> — Synapse (<code>:8008</code>), Element Web (<code>:8080/element/</code>), Ketesa admin UI (<code>:8080/admin/</code>), coturn, Prometheus metrics</li>
+  <li><strong>Config is generated, not edited</strong> — set <code>SERVER_NAME</code> and your Postgres details and start; overrides are re-rendered on every boot, so changing a setting is a container restart</li>
+  <li><strong>Federation works out of the box</strong> — Synapse serves <code>/.well-known/matrix/server</code> and <code>/.well-known/matrix/client</code> itself, so no extra reverse-proxy rules are needed</li>
+  <li><strong>Voice and video that actually connects</strong> — coturn with a pinned relay port range, optional <strong>TURN over TLS</strong> that switches itself on when you mount a certificate</li>
+  <li><strong>QR code device linking</strong> (new, opt-in) — sign a new device in by scanning a code, via Matrix Authentication Service. Off by default and it stays off until you enable it</li>
+  <li><strong>Admin account bootstrap</strong> — set two variables and the first server admin is created, or an existing account promoted</li>
+  <li><strong>Startup that fails loudly</strong> — a broken configuration stops the container with the reason in the log rather than quietly running on wrong settings</li>
+  <li>Multi-arch — amd64 + arm64</li>
+  <li>Image: <code>ghcr.io/junkerderprovinz/matrix:latest</code> (mirrored to <code>junkerderprovinz/matrix</code> on Docker Hub)</li>
+</ul>
+
+<h2>Requirements</h2>
+<ul>
+  <li>Unraid 6.10+</li>
+  <li><strong>PostgreSQL, external</strong>, and the database must use UTF8 with <code>C</code> collation or Synapse refuses to start:
+    <br><code>CREATE DATABASE matrix ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C' TEMPLATE template0 OWNER matrix;</code></li>
+  <li>A <strong>reverse proxy</strong> for <code>matrix.yourdomain.tld</code> to Unraid-IP <code>:8008</code>. In the proxy host's Advanced tab add <code>client_max_body_size 100m;</code> and generous timeouts, or media uploads fail and long-polling sync times out</li>
+  <li>For voice and video: the TURN relay UDP range must be reachable, so a <strong>port forward</strong> rather than a tunnel</li>
+  <li>Only if you want QR code login: a <strong>second, empty PostgreSQL database</strong> and a <strong>second reverse-proxy host with HTTPS</strong>. The README explains what enabling it changes before you flip anything</li>
+</ul>
+
+<h2>Posting a bug report</h2>
+<p>Please post:</p>
+<ul>
+  <li>Unraid version (Settings &#8594; System Information)</li>
+  <li>Image tag (<code>latest</code> or a pinned <code>vX.Y.Z</code>) — and please confirm you actually pulled it; Unraid happily reuses a cached image on the same tag</li>
+  <li>Output of <code>docker logs --tail 200 Matrix</code></li>
+  <li>Your <code>SERVER_NAME</code> (the domain is fine, no credentials) and whether the reverse proxy sits in front</li>
+  <li>Whether you changed <code>ENABLE_FEDERATION</code>, <code>ENABLE_REGISTRATION</code>, the TURN variables, or anything in the Delegated Auth block</li>
+  <li>For database errors: the output of <code>\l</code> in <code>psql</code>, so the encoding and collation are visible</li>
+</ul>
+<p>GitHub issues with the same info are also welcome:
+<a href="https://github.com/junkerderprovinz/matrix/issues">github.com/junkerderprovinz/matrix/issues</a></p>
+
+<h2>Credits</h2>
+<p>Built on <a href="https://github.com/element-hq/synapse">Synapse</a> and
+<a href="https://element.io">Element</a> by Element, the
+<a href="https://github.com/element-hq/matrix-authentication-service">Matrix Authentication Service</a>,
+<a href="https://github.com/etkecc/ketesa">Ketesa</a> by etke.cc (the maintained continuation of
+Synapse Admin), and <a href="https://github.com/coturn/coturn">coturn</a>. All used unmodified, each
+under its own license. If this saved you an evening of YAML, you can
+<a href="https://buymeacoffee.com/junkerderprovinz">buy me a coffee</a>.</p>
+
+<hr>
+
+<p class="footnote">Self-hosted, AGPL-3.0 licensed — you run it, you own your data and the responsibility. Not affiliated with Element or the Matrix.org Foundation.</p>
+
+</body>
+</html>
