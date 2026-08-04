@@ -708,16 +708,11 @@ something is missing, the container stops with a `[mas] ERROR:` line explaining 
 
 ### Migrating existing accounts
 
-Check first — this is safe while Synapse is running:
+Your existing accounts stay in Synapse when you enable delegation. Until they are migrated, nobody
+can sign in. **Users keep their sessions and devices through the migration, so nobody is signed out.**
 
-```bash
-docker exec -it Matrix mas-cli syn2mas check \
-    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
-docker exec -it Matrix mas-cli syn2mas migrate --dry-run \
-    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
-```
-
-Back up before the real run. This is the point of no return:
+**Back up first. This is the one step that cannot be undone** once MAS has started and anyone has
+signed in afterwards:
 
 ```bash
 docker exec Postgres pg_dump -U matrix -Fc matrix > /mnt/user/backups/matrix-$(date +%F).dump
@@ -725,12 +720,40 @@ docker stop Matrix
 tar czf /mnt/user/backups/matrix-appdata-$(date +%F).tgz -C /mnt/user/appdata matrix
 ```
 
-Then migrate with Synapse stopped. Users keep their sessions and devices, so nobody is signed out:
+#### The built-in way (recommended)
+
+Set `Auth: migrate accounts` to `true` and start the container. The migration runs during
+initialisation, **before Synapse starts** — which is precisely the offline window upstream requires,
+except you cannot forget it or have something restart the homeserver halfway through.
+
+It runs a pre-flight check, then a dry run, then the real migration, and refuses to continue at the
+first sign of trouble. If anything fails the container stops with the reason in the log rather than
+coming up with half-migrated accounts. On success you get:
+
+```
+###  ACCOUNTS MIGRATED  -  authentication is now handled by the auth service  ###
+```
+
+It will not run a second time, so leaving the field on `true` afterwards is harmless.
+
+#### By hand, if you prefer
+
+`check` and `--dry-run` are safe while Synapse is running. The real `migrate` is not: stop the
+container first, and note that this needs Synapse offline, which a running container cannot give you —
+which is why the built-in path exists.
 
 ```bash
-docker exec -it Matrix mas-cli syn2mas migrate \
-    --config /data/mas/config.yaml --synapse-config /data/homeserver.yaml
+docker exec -it Matrix mas-cli syn2mas check \
+    --config /data/mas/config.yaml \
+    --synapse-config /data/homeserver.yaml \
+    --synapse-config /data/homeserver-overrides.yaml
 ```
+
+**Both `--synapse-config` flags are required.** The container renders the database connection into
+`homeserver-overrides.yaml`, so passing only `homeserver.yaml` sends syn2mas at the generated SQLite
+defaults instead of your actual PostgreSQL database.
+
+Exit code `10` means the setup cannot be migrated as it stands; `11` means warnings only.
 
 ### Administering users afterwards
 
