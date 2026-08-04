@@ -96,15 +96,9 @@ if [ "${TURN_TLS_ON}" = "true" ]; then
         log_warn "coturn's TLS listener will fail until they are mounted (see the README 'TURN over TLS' section)."
     fi
     TURN_TLS_CONF="$(printf 'tls-listening-port=%s\ncert=%s\npkey=%s' "${TURN_TLS_PORT}" "${TURN_TLS_CERT}" "${TURN_TLS_KEY}")"
-    # turns: first (preferred), plain turn: kept as fallback for clients/networks
-    # that cannot use TLS.
-    TURN_URIS="$(printf '  - "turns:%s:%s?transport=tcp"\n  - "turns:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=tcp"' \
-        "${TURN_DOMAIN}" "${TURN_TLS_PORT}" "${TURN_DOMAIN}" "${TURN_TLS_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}")"
     log_info "TURN over TLS  = ENABLED (turns:${TURN_DOMAIN}:${TURN_TLS_PORT}, cert ${TURN_TLS_CERT})"
 else
     TURN_TLS_CONF="$(printf 'no-tls\nno-dtls')"
-    TURN_URIS="$(printf '  - "turn:%s:%s?transport=udp"\n  - "turn:%s:%s?transport=tcp"' \
-        "${TURN_DOMAIN}" "${TURN_PORT}" "${TURN_DOMAIN}" "${TURN_PORT}")"
     log_info "TURN over TLS  = off (mount fullchain.pem + privkey.pem at /data/certs to enable)"
 fi
 # ENABLE_REGISTRATION drives both Synapse (enable_registration) and Element's
@@ -337,8 +331,20 @@ case "${ENABLE_FEDERATION}" in
 esac
 
 log_info "Rendering homeserver-overrides.yaml from template ..."
-export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION TURN_URIS
+export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
+
+# When TURN over TLS is enabled, insert matching turns: URIs right after the
+# turn_uris: line. Kept out of the template (as a post-render sed) so the .tmpl
+# stays valid YAML for the CI template linter.
+if [ "${TURN_TLS_ON}" = "true" ]; then
+    TURNS_TMP="$(mktemp)"
+    printf '  - "turns:%s:%s?transport=tcp"\n  - "turns:%s:%s?transport=udp"\n' \
+        "${TURN_DOMAIN}" "${TURN_TLS_PORT}" "${TURN_DOMAIN}" "${TURN_TLS_PORT}" > "${TURNS_TMP}"
+    sed -i "/^turn_uris:\$/r ${TURNS_TMP}" "${OVERRIDES_OUT}"
+    rm -f "${TURNS_TMP}"
+fi
+
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
 chmod 600 "${OVERRIDES_OUT}"

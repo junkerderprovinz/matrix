@@ -77,11 +77,12 @@ enable_registration_without_verification: ${ENABLE_REGISTRATION}
 # TURN_DOMAIN lets you route TURN through a dedicated subdomain (e.g. to bypass a
 # reverse proxy); it defaults to SERVER_NAME. TURN_PORT is the public port clients
 # reach (default 3478) — change it if you remap the published TURN port.
-# The turn_uris list is built by 10-config.sh: plain turn: entries, plus turns:
-# (TURN over TLS on TURN_TLS_PORT, default 5349) when a certificate is mounted at
-# /data/certs. See the README "TURN over TLS" section.
+# Plain turn: entries below. When TURN over TLS is enabled (a certificate is
+# mounted at /data/certs), 10-config.sh inserts matching turns: entries after
+# this line on TURN_TLS_PORT (default 5349). See the README "TURN over TLS".
 turn_uris:
-${TURN_URIS}
+  - "turn:${TURN_DOMAIN}:${TURN_PORT}?transport=udp"
+  - "turn:${TURN_DOMAIN}:${TURN_PORT}?transport=tcp"
 turn_shared_secret: "${TURN_SECRET}"
 turn_user_lifetime: 86400000
 turn_allow_guests: false
