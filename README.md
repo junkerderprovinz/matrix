@@ -690,7 +690,12 @@ been started and anyone has signed in. **Back up first.**
    have been opening the bundled Element at `http://UNRAID-IP:8080/element/`, it will now load to a
    spinner and stop there, with the rejection visible only in the browser console.
 
-   Any of these fixes it:
+   **This affects browsers only.** The mobile apps and Element Desktop are native clients with no
+   browser origin, so they keep working with no extra host: Element X registers with a custom URI
+   scheme, which the auth service accepts, and the classic apps are handed off to it through the
+   ordinary SSO redirect. Do not build a third proxy host for the sake of your phone.
+
+   For the browser, any of these fixes it:
 
    - Use **Element Desktop**, which has no browser origin and needs no extra host
    - Give the bundled Element its own **HTTPS proxy host**, e.g. `element.yourdomain.tld` to
