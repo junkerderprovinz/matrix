@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.25
+# syntax=docker/dockerfile:1.26
 # =============================================================================
 # Matrix All-in-One — Wrapper around the official Synapse image
 # Adds: coturn (TURN/STUN), Element Web, Ketesa (admin UI), lighttpd, s6-overlay
@@ -20,8 +20,8 @@
 # the latest upstream Synapse release at build time and passes it in on purpose,
 # so the value below is only the local `docker build` default.
 # -----------------------------------------------------------------------------
-ARG SYNAPSE_VERSION=v1.156.0
-ARG ELEMENT_VERSION=v1.12.23
+ARG SYNAPSE_VERSION=v1.158.0
+ARG ELEMENT_VERSION=v1.12.25
 ARG SYNAPSE_ADMIN_VERSION=v1.4.0
 ARG MAS_VERSION=1.22.0
 ARG S6_OVERLAY_VERSION=3.2.0.2
