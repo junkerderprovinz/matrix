@@ -217,7 +217,7 @@ EXPOSE 49160-49200/udp
 
 # Health check: Synapse exposes a dedicated /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -fsSL http://127.0.0.1:8008/health || exit 1
+    CMD ["sh", "-c", "curl -fsSL http://127.0.0.1:8008/health || exit 1"]
 
 # s6-overlay takes over as PID 1 and supervises all services
 ENTRYPOINT ["/init"]
