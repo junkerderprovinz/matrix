@@ -23,6 +23,10 @@ No manual config file editing, no SSH access to the container required —
 just enter your domain and database credentials and the container handles the rest.
 </p>
 
+<p align="center">
+A solo, free-time project. Bugs and ideas via <a href="https://github.com/junkerderprovinz/matrix/issues">GitHub issues</a>; if it's useful to you, a coffee is always welcome.
+</p>
+
 <br>
 
 <p align="center">
@@ -1054,7 +1058,9 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 
 ## 16. Support this project
 
-If this template saves you a setup hassle or a debug night, consider buying me a coffee:
+Matrix is a one-person project. I write, test, and support it myself, in whatever free time is left after work. Found a bug or have an idea? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues) so it doesn't get lost.
+
+If you'd like to support the time that goes into it, you're welcome to buy me a coffee. Genuinely appreciated either way.
 
 <p align="center">
   <a href="https://buymeacoffee.com/junkerderprovinz">
