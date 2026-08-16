@@ -123,6 +123,19 @@ RUN apt-get update \
         jq \
     && rm -rf /var/lib/apt/lists/*
 
+# -----------------------------------------------------------------------------
+# Optional S3 media storage provider (matrix-org/synapse-s3-storage-provider).
+#
+# Installed into the SAME Python environment Synapse itself runs under (the
+# official image has no separate venv — Synapse is pip-installed straight into
+# system site-packages), so `s3_storage_provider.S3StorageProviderBackend`
+# becomes importable without any extra PYTHONPATH wiring. Inert when unused:
+# same "always shipped, opt-in at runtime" pattern as the MAS binary above.
+# Most of its own dependencies (PyYAML, Twisted, psycopg2) are already present
+# as part of Synapse; this mainly adds boto3/botocore/humanize/tqdm.
+# -----------------------------------------------------------------------------
+RUN pip install --no-cache-dir --break-system-packages synapse-s3-storage-provider==1.6.1
+
 # Install s6-overlay v3 (init system + process supervisor).
 # Architecture mapping: Docker TARGETARCH uses different names than s6-overlay release filenames.
 RUN case "${TARGETARCH}" in \

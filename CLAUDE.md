@@ -30,14 +30,15 @@ repo, not here.
 Dockerfile                       Multi-stage: element-web + ketesa + mas -> synapse
 rootfs/                          Overlay copied into the image (COPY rootfs/ /)
   etc/cont-init.d/               s6 one-shot init (00-banner.sh, 10-config.sh,
-                                 20-mas.sh, 25-mas-migrate.sh — order matters:
-                                 20 patches 10's output, 25 runs while Synapse
-                                 is still stopped, which is what syn2mas needs)
+                                 15-s3-media.sh, 20-mas.sh, 25-mas-migrate.sh —
+                                 order matters: 15 and 20 both patch 10's
+                                 output, 25 runs while Synapse is still
+                                 stopped, which is what syn2mas needs)
   etc/services.d/*/run           s6 long-running services (synapse, coturn,
                                  lighttpd, mas, admin-bootstrap, matrix-ready)
   defaults/*.tmpl                envsubst config templates (homeserver overrides,
                                  element-config, turnserver, mas-config,
-                                 mas-overrides) + lighttpd.conf
+                                 mas-overrides, s3-media-overrides) + lighttpd.conf
   usr/local/bin/print-banner.sh  Prints the init-log banner
 .github/workflows/               build.yml, lint.yml, release.yml
 .github/assets/                  Banner/logo/icon sources + gen-banner.mjs, screenshots
@@ -127,6 +128,13 @@ Recipes are in the `justfile` (`just --list`). The real commands underneath:
   their auth on a routine update would be a catastrophe. Every env read uses
   `${AUTH_X:-default}` (never `${AUTH_X-default}`) because a blank Unraid
   template field arrives as `-e AUTH_ENABLED=`, i.e. set but empty.
+- **S3 media storage is opt-in on the same hard-contract terms as MAS.** With
+  `S3_MEDIA_ENABLED` unset or false, `15-s3-media.sh` must leave the rendered
+  `homeserver-overrides.yaml` byte-for-byte unchanged — no `media_storage_providers`
+  key, nothing. `S3_MEDIA_ENDPOINT` has no default and fails loudly if unset when
+  enabled: this targets a self-hosted S3-compatible backend (SeaweedFS, Garage,
+  MinIO), not bare AWS, so silently falling back to AWS's real endpoint would be
+  worse than refusing to start.
 - **Synapse traps under delegation:** `enable_registration: true` is a hard
   ConfigError (Synapse will not start), and `experimental_features` may appear
   only once in the merged YAML — `20-mas.sh` strips both from the base render

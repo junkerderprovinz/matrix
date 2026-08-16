@@ -95,11 +95,12 @@ federation `well-known` snippet are in [section 5](#5-npm-configuration-nginx-pr
 9. [Creating the First Admin User](#9-creating-the-first-admin-user)
 10. [Generating Registration Tokens](#10-generating-registration-tokens)
 11. [Delegated Auth and QR Code Login](#11-delegated-auth-and-qr-code-login)
-12. [Updates](#12-updates)
-13. [Troubleshooting](#13-troubleshooting)
-14. [Contributing / License](#14-contributing--license)
-15. [License](#15-license)
-16. [Support this project](#16-support-this-project)
+12. [S3 Media Storage](#12-s3-media-storage)
+13. [Updates](#13-updates)
+14. [Troubleshooting](#14-troubleshooting)
+15. [Contributing / License](#15-contributing--license)
+16. [License](#16-license)
+17. [Support this project](#17-support-this-project)
 <br>
 
 ## 1. What Is This?
@@ -124,7 +125,7 @@ without maintaining our own Synapse build pipeline. The GitHub Actions workflow 
 Synapse releases every hour and rebuilds the image automatically — and no build ships blind:
 before `:latest` is published, CI boots the freshly built image against a throwaway PostgreSQL
 and refuses to release it unless Synapse is demonstrably running on that database (a silent
-SQLite fallback fails the build). Details in [section 12](#12-updates).
+SQLite fallback fails the build). Details in [section 13](#13-updates).
 
 **PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
@@ -836,7 +837,61 @@ start.
 
 <br>
 
-## 12. Updates
+## 12. S3 Media Storage
+
+**Off by default.** If you never touch the settings in this section, media is stored exactly as it always
+has been — under `/data/media_store` on the container's own volume. Nothing else here changes.
+
+### What it is
+
+Synapse can copy every uploaded avatar, image and file to an S3-compatible bucket in addition to its local
+store, via the upstream [`synapse-s3-storage-provider`](https://github.com/matrix-org/synapse-s3-storage-provider)
+module (bundled in the image, inert until you switch it on). The local `/data/media_store` stays a hot
+cache — Synapse checks it first — while the bucket holds a durable, off-box copy. This is meant for a
+self-hosted S3-compatible backend such as **SeaweedFS** or **Garage** — the same one you may already be
+running for OpenCloud — not bare AWS: there is no built-in default endpoint, so the container refuses to
+start with this feature on and no endpoint set, rather than silently talking to real AWS.
+
+For a handful of accounts this is not solving a real problem — media volume stays small regardless. It is
+here for when the same server also hosts other buckets, and you would rather grow media storage independent
+of the container's own disk than resize volumes later.
+
+### Requirements
+
+1. **A bucket that already exists** on your S3-compatible backend — this feature does not create one.
+2. **An access key with read/write access to that bucket.**
+3. **The endpoint URL**, e.g. `http://192.168.20.73:8333` for a local SeaweedFS S3 gateway.
+
+### Enabling it
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `S3_MEDIA_ENABLED` | No | `false` | Master switch. |
+| `S3_MEDIA_BUCKET` | **Yes**, when enabled | — | Bucket name. |
+| `S3_MEDIA_ENDPOINT` | **Yes**, when enabled | — | S3-compatible endpoint URL. |
+| `S3_MEDIA_ACCESS_KEY_ID` | **Yes**, when enabled | — | Access key. |
+| `S3_MEDIA_SECRET_ACCESS_KEY` | **Yes**, when enabled | — | Secret key. |
+| `S3_MEDIA_REGION` | No | `us-east-1` | Most self-hosted backends ignore this but boto3 requires some value. |
+| `S3_MEDIA_STORAGE_CLASS` | No | `STANDARD` | Passed straight through to the bucket. |
+
+Set these in the Unraid template (or `docker run -e`) and restart the container. The log line
+`[s3-media] INFO: S3 media storage = ENABLED` confirms it took effect.
+
+**Existing media is not migrated retroactively** — only new uploads from the moment this is switched on are
+copied to the bucket. To also move what is already on disk, run the upstream
+[`migrate_media_to_s3.py`](https://github.com/matrix-org/synapse-s3-storage-provider/blob/main/scripts/migrate_media_to_s3.py)
+script against the running container (it needs the same config block this feature renders into
+`/data/homeserver-overrides.yaml`).
+
+### Turning it back off
+
+Set `S3_MEDIA_ENABLED` back to `false` and restart. Synapse goes back to serving media purely from local
+disk; anything already copied to the bucket is left there untouched (nothing deletes it), it is just no
+longer read from or written to.
+
+<br>
+
+## 13. Updates
 
 ### Automatic image updates (GitHub Actions)
 
@@ -865,7 +920,7 @@ Nothing is published blind — every rebuild must pass a **boot smoke-test gate*
 
 <br>
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 ### Error: "database encoding is not UTF8" or "LC_COLLATE mismatch"
 
@@ -1021,7 +1076,7 @@ Advanced overrides (rarely needed):
 
 <br>
 
-## 14. Contributing / License
+## 15. Contributing / License
 
 ### Issues & feature requests
 
@@ -1047,7 +1102,7 @@ trademarks/projects and are used here unmodified as base images / packages.
 
 <br>
 
-## 15. License
+## 16. License
 
 **Copyright (C) 2026 Junker der Provinz.**
 
@@ -1057,7 +1112,7 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 
 <br>
 
-## 16. Support this project
+## 17. Support this project
 
 Questions? Check the [support thread](https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/). Bugs, ideas or feature requests? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues).
 
