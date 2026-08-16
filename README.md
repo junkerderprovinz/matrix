@@ -24,7 +24,7 @@ just enter your domain and database credentials and the container handles the re
 </p>
 
 <p align="center">
-Maintained solo, in whatever spare time there is. Bugs, ideas and feature requests via <a href="https://github.com/junkerderprovinz/matrix/issues">GitHub issues</a>. If it's useful to you, a coffee is always welcome.
+Maintained solo, in whatever spare time there is. Questions via the <a href="https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/">support thread</a>, bugs, ideas and feature requests via <a href="https://github.com/junkerderprovinz/matrix/issues">GitHub issues</a>. If it's useful to you, a coffee is always welcome.
 </p>
 
 <br>
@@ -1059,7 +1059,7 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 
 ## 16. Support this project
 
-Questions, bugs, ideas or feature requests? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues).
+Questions? Check the [support thread](https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/). Bugs, ideas or feature requests? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues).
 
 This is a one-person project. I put a lot of time and effort into building and maintaining it, in whatever free time I have. If it's helped you, I'd genuinely appreciate the support: you're welcome to buy me a coffee.
 
