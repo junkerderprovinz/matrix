@@ -1,0 +1,33 @@
+# =============================================================================
+# s3-media-overrides.yaml.tmpl — S3 media storage provider configuration
+#
+# Rendered by 15-s3-media.sh and appended to /data/homeserver-overrides.yaml,
+# but ONLY when S3_MEDIA_ENABLED=true. With the switch off nothing from this
+# file is emitted, so the rendered Synapse config stays byte-for-byte identical
+# to an install that never turned this on — same opt-in contract as MAS.
+#
+# store_local: True keeps every upload on the local /data/media_store as a hot
+# cache (Synapse checks local storage before falling back to a provider), while
+# store_remote + store_synchronous mean every new upload is also durably copied
+# to the S3-compatible bucket before the upload call returns. Existing local
+# media is NOT migrated retroactively — see the README "S3 Media Storage"
+# section for the one-off migrate_media_to_s3.py script if that is wanted.
+#
+# endpoint_url is required (not optional): this feature targets a self-hosted
+# S3-compatible backend (SeaweedFS, Garage, MinIO), never bare AWS, so there is
+# no sensible default to fall back to — 15-s3-media.sh fails loudly if it is
+# unset rather than silently talking to AWS's real endpoint.
+# =============================================================================
+
+media_storage_providers:
+  - module: s3_storage_provider.S3StorageProviderBackend
+    store_local: True
+    store_remote: True
+    store_synchronous: True
+    config:
+      bucket: "${S3_MEDIA_BUCKET}"
+      region_name: "${S3_MEDIA_REGION}"
+      endpoint_url: "${S3_MEDIA_ENDPOINT}"
+      access_key_id: "${S3_MEDIA_ACCESS_KEY_ID}"
+      secret_access_key: "${S3_MEDIA_SECRET_ACCESS_KEY}"
+      storage_class: "${S3_MEDIA_STORAGE_CLASS}"
