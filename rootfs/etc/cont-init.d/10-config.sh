@@ -390,9 +390,38 @@ chmod 640 "${TURN_OUT}"
 ELEMENT_TMPL="/defaults/element-config.json.tmpl"
 ELEMENT_OUT="/var/www/html/element/config.json"
 
+# ELEMENT_EXTRA_FEATURES: optional JSON object merged into Element Web's
+# "features" block (labs/feature flags), e.g. '{"feature_html_topic": true}'.
+# Defaults to {} (no extra features). Validated before use — malformed JSON
+# would otherwise break config.json outright (Element Web fails to load, not
+# just the requested feature), so a bad value is dropped with a warning
+# instead of ever reaching the rendered file.
+if [ -z "${ELEMENT_EXTRA_FEATURES}" ]; then
+    ELEMENT_EXTRA_FEATURES='{}'
+fi
+if ! printf '%s' "${ELEMENT_EXTRA_FEATURES}" | python3 -c "
+import json, sys
+obj = json.load(sys.stdin)
+if not isinstance(obj, dict):
+    sys.exit(1)
+" >/dev/null 2>&1; then
+    log_warn "ELEMENT_EXTRA_FEATURES is not a valid JSON object, ignoring it: ${ELEMENT_EXTRA_FEATURES}"
+    ELEMENT_EXTRA_FEATURES='{}'
+fi
+
 log_info "Rendering Element Web config.json ..."
-export SERVER_NAME ENABLE_REGISTRATION
+export SERVER_NAME ENABLE_REGISTRATION ELEMENT_EXTRA_FEATURES
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
+
+# Final safety net: confirm the rendered config.json is itself valid JSON
+# (envsubst is a blind text substitution, it cannot catch a malformed
+# ELEMENT_EXTRA_FEATURES value that slipped past the check above via some
+# other unforeseen shape). If it is not, Element Web would fail to load
+# entirely, so fail loudly here instead of shipping a broken config.
+if ! python3 -c "import json; json.load(open('${ELEMENT_OUT}'))" >/dev/null 2>&1; then
+    log_error "Rendered Element Web config.json is not valid JSON — check ELEMENT_EXTRA_FEATURES."
+    log_error "Element Web will fail to load until this is fixed and the container is restarted."
+fi
 
 # =============================================================================
 # 7. Ensure /data sub-directories exist with correct ownership

@@ -203,6 +203,7 @@ Everything else has sensible defaults. The most useful optional variables:
 | `TURN_DOMAIN` / `TURN_PORT` | `SERVER_NAME` / `3478` | Route voice/video (TURN) through a dedicated subdomain and/or a remapped port — e.g. to take coturn around your reverse proxy. |
 | `TURN_TLS_ENABLE` | `auto` | TURN over TLS (`turns:`). `auto` = on when a certificate is mounted at `/data/certs`; `true`/`false` force it. See [Troubleshooting → TURN over TLS](#turn-over-tls-optional). |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | — | Auto-create the first server admin (or promote an existing account) on the next start — see [section 9](#9-creating-the-first-admin-user). |
+| `ELEMENT_EXTRA_FEATURES` | `{}` | JSON object merged into Element Web's `features` block (labs/feature flags), e.g. `{"feature_html_topic": true}` for Markdown/HTML room topics (MSC3765). Invalid JSON is ignored with a warning in the log rather than breaking Element Web. |
 
 ### Step 4 — Start the container and check the logs
 
