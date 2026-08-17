@@ -51,29 +51,31 @@ esac
 /usr/local/bin/print-banner.sh "Matrix" "Synapse + Element + coturn, plug-and-play for Unraid"
 
 # Colored via plain ANSI SGR codes, not tput (tput needs a terminfo database
-# that may not exist in a minimal container): 32 green / 33 yellow / 0 reset.
-# docker logs passes stdout bytes through untouched, so any ANSI-aware viewer
-# (a real terminal, Unraid's log panel) renders the color; a viewer that does
-# not understand SGR codes just shows them as inert text. printf '%b', not
-# "echo -e": this script is POSIX sh, where -e is not portable.
+# that may not exist in a minimal container): 32 green / 33 yellow / 31 red,
+# 0 reset. docker logs passes stdout bytes through untouched, so any
+# ANSI-aware viewer (a real terminal, Unraid's log panel) renders the color;
+# a viewer that does not understand SGR codes just shows them as inert text.
+# printf '%b', not "echo -e": this script is POSIX sh, where -e is not
+# portable.
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-SEP=$(printf '%72s' '' | tr ' ' '#')
-echo ""
-echo "$SEP"
+# Clean one-line-per-service status (house look: no rule/box walls, label +
+# detail on the same line). print-banner.sh already left one blank line
+# above this. Synapse and MAS are two separate services, so up to two status
+# lines can appear -- each still fully combined to one line.
 if [ "$ready" -eq 1 ]; then
-    printf '%b\n' "###  ${GREEN}MATRIX IS READY${NC}  -  Synapse is serving on port 8008 (point your reverse proxy / Element here)  ###"
+    printf '%b\n' "  ${GREEN}✓ MATRIX IS READY${NC} - Synapse is serving on port 8008 (point your reverse proxy / Element here)"
     if [ "$mas_ready" = "1" ]; then
-        printf '%b\n' "###  ${GREEN}AUTH IS READY${NC}    -  Matrix Authentication Service is serving on port 8090 (QR code login available)  ###"
+        printf '%b\n' "  ${GREEN}✓ AUTH IS READY${NC} - Matrix Authentication Service is serving on port 8090 (QR code login available)"
     elif [ "$mas_ready" = "0" ]; then
-        printf '%b\n' "###  ${YELLOW}WARNING: AUTH DID NOT BECOME READY${NC}  -  MAS /health never answered; logins will fail, check the log above  ###"
+        printf '%b\n' "  ${YELLOW}! AUTH DID NOT BECOME READY${NC} - MAS /health never answered, logins will fail, check the log above"
     fi
 else
-    printf '%b\n' "###  ${YELLOW}WARNING: MATRIX DID NOT BECOME READY${NC}  -  Synapse /health never answered within 5 min, check the log above  ###"
+    printf '%b\n' "  ${RED}✗ MATRIX DID NOT BECOME READY${NC} - Synapse /health never answered within 5 min, check the log above"
 fi
-echo "$SEP"
 echo ""
 
 : > "$FLAG"
