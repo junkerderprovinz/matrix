@@ -22,7 +22,13 @@ else
     echo ""
 fi
 
-# Clean title block: name + subtitle only, no rules (house look).
-printf '  %s\n' "${CONTAINER}"
-[ -n "${SUBTITLE}" ] && printf '  %s\n' "${SUBTITLE}"
+# Clean title block: name + subtitle on ONE line (house look, no rules). The
+# caller's READY/status line follows directly below the blank line this
+# prints -- the banner + title + status block is always the LAST thing this
+# container's own boot log prints.
+if [ -n "${SUBTITLE}" ]; then
+    printf '  %s · %s\n' "${CONTAINER}" "${SUBTITLE}"
+else
+    printf '  %s\n' "${CONTAINER}"
+fi
 echo ""
