@@ -20,7 +20,7 @@
 # the latest upstream Synapse release at build time and passes it in on purpose,
 # so the value below is only the local `docker build` default.
 # -----------------------------------------------------------------------------
-ARG SYNAPSE_VERSION=v1.158.0
+ARG SYNAPSE_VERSION=v1.159.0
 ARG ELEMENT_VERSION=v1.12.26
 ARG SYNAPSE_ADMIN_VERSION=v1.4.0
 ARG MAS_VERSION=1.22.0
