@@ -21,7 +21,7 @@
 # so the value below is only the local `docker build` default.
 # -----------------------------------------------------------------------------
 ARG SYNAPSE_VERSION=v1.158.0
-ARG ELEMENT_VERSION=v1.12.25
+ARG ELEMENT_VERSION=v1.12.26
 ARG SYNAPSE_ADMIN_VERSION=v1.4.0
 ARG MAS_VERSION=1.22.0
 ARG S6_OVERLAY_VERSION=3.2.0.2
