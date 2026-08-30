@@ -99,5 +99,5 @@ dist/
 # --- Logs ---
 *.log
 logs/
-# Local Claude Code / agent config (never commit)
+# Local agent config (never commit)
 .claude/
