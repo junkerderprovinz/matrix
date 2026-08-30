@@ -515,21 +515,32 @@ jobs:
             fi
             sleep 1
           done
-          # Poll rather than assert once: container stdout reaches `docker logs`
-          # through the s6 logging chain, which lags the script that wrote it by a
-          # moment. A single grep here raced that lag and reported a missing
-          # banner that was in the log a fraction of a second later.
+          # Wait on STATE, not on output. The marker file is written straight to
+          # the volume, while the banner still has to travel through the s6 logging
+          # chain. Polling the banner alone kept losing that race: a run gave up
+          # after 30s and the banner appeared 0.1s later, inside the very
+          # `docker logs` call that printed the failure. The migration had been
+          # done the whole time, only its announcement was still queued. So the
+          # marker is asserted first and the banner second, by which point the log
+          # has had its time.
+          for i in $(seq 1 90); do
+            docker exec mx-mig test -f /data/mas/.migrated 2>/dev/null && break
+            if [ -z "$(docker ps -q --filter name=mx-mig$)" ]; then
+              echo "❌ container stopped before the migration finished"; docker logs mx-mig || true; exit 1
+            fi
+            sleep 1
+          done
+          docker exec mx-mig test -f /data/mas/.migrated \
+            || { echo "❌ migration marker not written — it would run again on next start"; docker logs mx-mig | tail -40 || true; exit 1; }
+          echo "✅ migration marker written"
           found=0
           for i in $(seq 1 30); do
             if docker logs mx-mig 2>&1 | grep -q "ACCOUNTS MIGRATED"; then found=1; break; fi
             sleep 1
           done
           [ "$found" = "1" ] \
-            || { echo "❌ migration banner never appeared"; docker logs mx-mig || true; exit 1; }
+            || { echo "❌ migration finished but never announced it — the operator gets no signal"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migration ran and reported success"
-          docker exec mx-mig test -f /data/mas/.migrated \
-            || { echo "❌ migration marker not written — it would run again on next start"; exit 1; }
-          echo "✅ migration marker written"
 
           echo "--- phase 3: the account must still work, with the same password ---"
           for i in $(seq 1 60); do
