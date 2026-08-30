@@ -6,3 +6,7 @@
 # scripts (run), envsubst templates (*.tmpl) and configs. No binaries live here
 # (checked) — pin the whole tree to LF so CRLF checkouts can't break shebangs.
 rootfs/** text eol=lf
+
+# Workflow files are executed by the Actions runner: a CRLF run: block breaks
+# the shell mid-line. Same pin as in the sibling repos.
+.github/workflows/*.yml text eol=lf
