@@ -897,7 +897,7 @@ longer read from or written to.
 
 The GitHub Actions workflow checks **every hour** for a new Synapse release.
 When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
-and pushed to `junkerderprovinz/matrix` on Docker Hub (mirrored to `ghcr.io/junkerderprovinz/matrix`).
+and pushed to `ghcr.io/junkerderprovinz/matrix`, mirrored to `junkerderprovinz/matrix` on Docker Hub.
 
 Nothing is published blind — every rebuild must pass a **boot smoke-test gate** first:
 

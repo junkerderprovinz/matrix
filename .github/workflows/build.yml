@@ -52,6 +52,12 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/junkerderprovinz/matrix
+  # Whether the Docker Hub mirror is fully configured. Evaluated once here because
+  # `secrets` is not available in a step-level `if:` — only the variable would be
+  # readable there, which is exactly the half-check that let a rotated token take
+  # the whole job down.
+  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+  DOCKERHUB_READY: ${{ vars.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
   # NOTE: component versions (Element Web, Ketesa, s6-overlay) are pinned in the
   # Dockerfile ARGs and deliberately NOT repeated here. They used to be listed as
   # build-args below, which silently overrode the Dockerfile and meant Renovate
@@ -133,12 +139,28 @@ jobs:
             echo "Force rebuild requested — skipping existence check."
             SKIP="false"
           else
-            # docker manifest inspect returns 0 if the manifest exists
-            if docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
-              echo "Image ${IMAGE} already exists — skipping build."
+            # Skip only when the tag exists on EVERY registry we publish to. Checking
+            # GHCR alone meant that turning the Docker Hub mirror on later, for a tag
+            # GHCR already had, made scheduled runs skip forever and Hub stayed empty —
+            # while the CA template points users at the Hub image. A missing tag on
+            # either side is a reason to build.
+            # docker manifest inspect returns 0 if the manifest exists.
+            MISSING=""
+            if ! docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+              MISSING="${MISSING} ${IMAGE}"
+            fi
+            if [ "${DOCKERHUB_READY}" = "true" ]; then
+              DH_IMAGE="docker.io/${DOCKERHUB_USERNAME}/matrix:${TAG}"
+              if ! docker manifest inspect "${DH_IMAGE}" > /dev/null 2>&1; then
+                MISSING="${MISSING} ${DH_IMAGE}"
+              fi
+            fi
+
+            if [ -z "${MISSING}" ]; then
+              echo "Image exists on every configured registry — skipping build."
               SKIP="true"
             else
-              echo "Image ${IMAGE} not found — will build."
+              echo "Missing on:${MISSING} — will build."
               SKIP="false"
             fi
           fi
@@ -160,8 +182,13 @@ jobs:
       # Docker Hub mirror — active only once DOCKERHUB_USERNAME (variable) and
       # DOCKERHUB_TOKEN (secret) are set together; otherwise skipped (GHCR-only).
       # -----------------------------------------------------------------------
+      # Both halves are required, not just the variable: with the variable set and
+      # the secret missing or rotated, login-action fails, and because this step is
+      # not optional that failure takes the whole job down — including the GHCR push
+      # that was working. Gating on both makes a missing secret skip the mirror
+      # instead of breaking the build.
       - name: Log in to Docker Hub
-        if: steps.check.outputs.skip != 'true' && vars.DOCKERHUB_USERNAME != ''
+        if: steps.check.outputs.skip != 'true' && env.DOCKERHUB_READY == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -188,7 +215,6 @@ jobs:
         id: tags
         if: steps.check.outputs.skip != 'true'
         env:
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           SYN_TAG: ${{ steps.synapse.outputs.tag }}
           SYN_TAG_BARE: ${{ steps.synapse.outputs.tag_bare }}
         run: |
@@ -197,7 +223,10 @@ jobs:
             echo "${IMAGE_NAME}:latest"
             echo "${IMAGE_NAME}:${SYN_TAG}"
             echo "${IMAGE_NAME}:${SYN_TAG_BARE}"
-            if [ -n "${DOCKERHUB_USERNAME}" ]; then
+            # Gate on DOCKERHUB_READY, not the username alone: the login step now
+            # skips when the token is missing, and emitting Hub tags for a registry
+            # we never logged into would fail the push instead of skipping the mirror.
+            if [ "${DOCKERHUB_READY}" = "true" ]; then
               DH="docker.io/${DOCKERHUB_USERNAME}/matrix"
               echo "${DH}:latest"
               echo "${DH}:${SYN_TAG}"
