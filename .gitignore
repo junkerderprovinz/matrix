@@ -100,4 +100,3 @@ dist/
 *.log
 logs/
 # Local agent config (never commit)
-.claude/
