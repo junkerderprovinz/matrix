@@ -10,3 +10,8 @@ rootfs/** text eol=lf
 # Workflow files are executed by the Actions runner: a CRLF run: block breaks
 # the shell mid-line. Same pin as in the sibling repos.
 .github/workflows/*.yml text eol=lf
+
+# Generated banner assets: the generator writes LF, and their blobs still held
+# CRLF, so every run reported them as modified while the bytes were identical.
+# Pinned rather than blanket-normalised, to keep this file's narrow scope.
+.github/assets/*.svg text eol=lf
