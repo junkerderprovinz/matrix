@@ -5,78 +5,145 @@
     "helpers:pinGitHubActionDigests",
     ":semanticCommits",
     ":dependencyDashboard",
-    ":enableVulnerabilityAlertsWithLabel(security)"
+    ":enableVulnerabilityAlertsWithLabel(security)",
+    "docker:pinDigests"
   ],
   "timezone": "Europe/Vienna",
-  "schedule": ["before 6am on monday"],
-  "labels": ["dependencies"],
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 6,
   "packageRules": [
     {
       "description": "Synapse upstream — major bumps are breaking, keep manual",
-      "matchPackageNames": ["ghcr.io/element-hq/synapse"],
+      "matchPackageNames": [
+        "ghcr.io/element-hq/synapse"
+      ],
       "groupName": "Synapse",
       "commitMessageTopic": "Synapse",
       "commitMessagePrefix": "feat:",
-      "labels": ["upstream-bump", "synapse"]
+      "labels": [
+        "upstream-bump",
+        "synapse"
+      ]
     },
     {
       "description": "Element Web upstream",
-      "matchPackageNames": ["vectorim/element-web"],
+      "matchPackageNames": [
+        "vectorim/element-web"
+      ],
       "groupName": "Element Web",
       "commitMessageTopic": "Element Web",
       "commitMessagePrefix": "feat:",
-      "labels": ["upstream-bump", "element"]
+      "labels": [
+        "upstream-bump",
+        "element"
+      ]
     },
     {
       "description": "Ketesa (admin UI, formerly Synapse-Admin) upstream",
-      "matchPackageNames": ["ghcr.io/etkecc/ketesa"],
+      "matchPackageNames": [
+        "ghcr.io/etkecc/ketesa"
+      ],
       "groupName": "Ketesa",
       "commitMessageTopic": "Ketesa",
       "commitMessagePrefix": "feat:",
-      "labels": ["upstream-bump", "synapse-admin"]
+      "labels": [
+        "upstream-bump",
+        "synapse-admin"
+      ]
     },
     {
       "description": "Matrix Authentication Service — auth is load-bearing, keep manual",
-      "matchPackageNames": ["ghcr.io/element-hq/matrix-authentication-service"],
+      "matchPackageNames": [
+        "ghcr.io/element-hq/matrix-authentication-service"
+      ],
       "groupName": "MAS",
       "commitMessageTopic": "Matrix Authentication Service",
       "commitMessagePrefix": "feat:",
-      "labels": ["upstream-bump", "mas"]
+      "labels": [
+        "upstream-bump",
+        "mas"
+      ]
     },
     {
       "description": "s6-overlay — auto-merge minor/patch (build tool, low risk)",
-      "matchPackageNames": ["just-containers/s6-overlay"],
+      "matchPackageNames": [
+        "just-containers/s6-overlay"
+      ],
       "groupName": "s6-overlay",
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "automergeType": "branch",
       "commitMessagePrefix": "chore:",
-      "labels": ["build-tool"]
+      "labels": [
+        "build-tool"
+      ]
     },
     {
       "description": "GitHub Actions: auto-merge minor/patch/digest",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "branch",
       "commitMessagePrefix": "ci:",
-      "labels": ["github-actions"]
+      "labels": [
+        "github-actions"
+      ]
     },
     {
       "description": "GitHub Actions major: manual PRs",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["major"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "commitMessagePrefix": "ci:",
-      "labels": ["github-actions", "major-update"]
+      "labels": [
+        "github-actions",
+        "major-update"
+      ]
+    },
+    {
+      "description": "Docker: auto-merge digest pins and digest refreshes (same tag, new build). Major/minor stay open for review.",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "matchUpdateTypes": [
+        "pinDigest",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true,
+      "commitMessagePrefix": "ci:",
+      "labels": [
+        "docker"
+      ]
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Track Synapse version from ARG SYNAPSE_VERSION=<tag>",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "ARG SYNAPSE_VERSION=(?<currentValue>v[^\\s]+)"
       ],
@@ -86,7 +153,9 @@
     {
       "customType": "regex",
       "description": "Track Element Web version from ARG ELEMENT_VERSION=<tag>",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "ARG ELEMENT_VERSION=(?<currentValue>v[^\\s]+)"
       ],
@@ -96,7 +165,9 @@
     {
       "customType": "regex",
       "description": "Track Ketesa (admin UI) version from ARG SYNAPSE_ADMIN_VERSION=<tag>. Must stay a Docker datasource pointing at the image the Dockerfile actually pulls — tracking the GitHub repo instead would offer tags that do not exist on the registry.",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "ARG SYNAPSE_ADMIN_VERSION=(?<currentValue>v[^\\s]+)"
       ],
@@ -106,7 +177,9 @@
     {
       "customType": "regex",
       "description": "Track Matrix Authentication Service version from ARG MAS_VERSION=<tag>",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "ARG MAS_VERSION=(?<currentValue>[^\\s]+)"
       ],
@@ -116,7 +189,9 @@
     {
       "customType": "regex",
       "description": "Track s6-overlay version from ARG S6_OVERLAY_VERSION=<tag>",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "ARG S6_OVERLAY_VERSION=(?<currentValue>[^\\s]+)"
       ],
