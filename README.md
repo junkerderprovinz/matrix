@@ -27,6 +27,10 @@ just enter your domain and database credentials and the container handles the re
 One knight's job: I build it, keep it running, work through the issues and add what people ask for, until nothing is missing. No accounts, no telemetry, no ads. No trial, no tier, no asterisk. Nothing readable ever leaves your own walls.
 </p>
 
+<p align="center">
+If it has earned a place on your computer or server, a donation covers what it costs: the domain, the server, and the evenings that go into it. It also makes this knight's heart beat a little faster. Three ways below, whichever suits you.
+</p>
+
 <br>
 
 <p align="center">
@@ -1117,6 +1121,8 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 ## 17. Support this project
 
 Questions? Check the [support thread](https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/). Bugs, ideas or feature requests? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues).
+
+One knight's job: I build it, keep it running, work through the issues and add what people ask for, until nothing is missing. No accounts, no telemetry, no ads. No trial, no tier, no asterisk. Nothing readable ever leaves your own walls.
 
 If it has earned a place on your computer or server, a donation covers what it costs: the domain, the server, and the evenings that go into it. It also makes this knight's heart beat a little faster. Three ways below, whichever suits you.
 
