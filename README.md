@@ -106,7 +106,8 @@ federation `well-known` snippet are in [section 5](#5-npm-configuration-nginx-pr
 14. [Troubleshooting](#14-troubleshooting)
 15. [Contributing / License](#15-contributing--license)
 16. [License](#16-license)
-17. [Support this project](#17-support-this-project)
+17. [How AI is used here](#17-how-ai-is-used-here)
+18. [Support this project](#18-support-this-project)
 <br>
 
 ## 1. What Is This?
@@ -1118,7 +1119,15 @@ This repository packages Matrix Synapse as a container for Unraid. The packaging
 
 <br>
 
-## 17. Support this project
+## 17. How AI is used here
+
+One knight builds this, and AI is one of the tools I work with, the same way I work with an editor or a compiler. It helps me write code and documentation and it checks my work, and that saves me a good many evenings. It does not make the decisions, though. I read and understand everything before it ships, and if something here breaks, that is on me and not on the tool.
+
+You do not have to take my word for it. The code is open and every release note is written by hand. The issue tracker shows how problems actually get handled, including the ones I got wrong the first time. If you find something that is not right, open an issue and I will look at it.
+
+<br>
+
+## 18. Support this project
 
 Questions? Check the [support thread](https://forums.unraid.net/topic/198818-support-junkerderprovinz-matrix-aio/). Bugs, ideas or feature requests? Please [open a GitHub issue](https://github.com/junkerderprovinz/matrix/issues).
 
