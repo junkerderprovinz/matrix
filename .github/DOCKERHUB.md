@@ -112,7 +112,7 @@ The complete README — PostgreSQL details, NPM / Cloudflare Tunnel trade-offs, 
 Found a bug? Have a feature request? → [GitHub issues](https://github.com/junkerderprovinz/matrix/issues)
 
 <a href="https://buymeacoffee.com/junkerderprovinz">
-  <img src="https://buttons.halleluja.design/give/buy-me-a-coffee.svg" alt="Buy me a coffee" width="160">
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/junkerderprovinz/main/donate/buttons/button-buy-me-a-coffee-live.svg" alt="Buy me a coffee" width="160">
 </a>
 
 ## License
