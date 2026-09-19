@@ -1,20 +1,15 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# =============================================================================
-# matrix-ready — print a loud "MATRIX IS READY" banner to the container log once
-# Synapse answers on its health endpoint, so the user knows the (30-60s) first
-# start has finished. House standard, see the vault note "Style Guide - Docker
-# Container" (every own-image container prints an "<APP> IS READY" log banner).
-# =============================================================================
+# Prints "MATRIX IS READY" to the log once Synapse answers /health, so the user
+# knows the first start (30-60s) has finished.
 FLAG=/run/matrix-ready.printed
 
-# /run is tmpfs (wiped on every container start) -> the banner prints once/start.
+# /run is a tmpfs, so the banner prints once per container start.
 if [ -f "$FLAG" ]; then
     exec sleep infinity
 fi
 
-# Wait until Synapse answers on its health endpoint (same check as HEALTHCHECK).
-# Capped at ~5 min so we never hang forever.
+# Same check as HEALTHCHECK, for at most five minutes.
 ready=0
 i=0
 while [ "$i" -lt 150 ]; do
@@ -26,11 +21,9 @@ while [ "$i" -lt 150 ]; do
     sleep 2
 done
 
-# When delegated auth is on, MAS is part of "ready": Synapse answering /health
-# while MAS is still migrating its database means logins fail for anyone who
-# tries in that window. Gate on its internal health listener too, but never let
-# it block the banner for longer than a minute — a missing MAS is reported, not
-# hidden behind a silent hang.
+# With delegated auth, logins fail while MAS is still migrating its database, so
+# ready includes its internal health listener. The wait is capped at a minute so
+# a missing MAS is reported instead of hidden behind a hang.
 mas_ready=""
 case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|on)
@@ -47,25 +40,15 @@ case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
         ;;
 esac
 
-# House init-log banner as the final block, directly above the READY box.
 /usr/local/bin/print-banner.sh "Matrix" "Synapse + Element + coturn, plug-and-play for Unraid"
 
-# Colored via plain ANSI SGR codes, not tput (tput needs a terminfo database
-# that may not exist in a minimal container): 32 green / 33 yellow / 31 red,
-# 0 reset. docker logs passes stdout bytes through untouched, so any
-# ANSI-aware viewer (a real terminal, Unraid's log panel) renders the color;
-# a viewer that does not understand SGR codes just shows them as inert text.
-# printf '%b', not "echo -e": this script is POSIX sh, where -e is not
-# portable.
+# Plain ANSI codes, since tput needs a terminfo database the image may lack.
+# printf '%b' because echo -e is not POSIX.
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Clean one-line-per-service status (house look: no rule/box walls, label +
-# detail on the same line). print-banner.sh already left one blank line
-# above this. Synapse and MAS are two separate services, so up to two status
-# lines can appear -- each still fully combined to one line.
 if [ "$ready" -eq 1 ]; then
     printf '%b\n' "  ${GREEN}✓ MATRIX IS READY${NC} - Synapse is serving on port 8008 (point your reverse proxy / Element here)"
     if [ "$mas_ready" = "1" ]; then
@@ -79,5 +62,5 @@ fi
 echo ""
 
 : > "$FLAG"
-# Longrun: stay up so s6 does not restart us and re-print the banner.
+# Stay up so s6 does not restart the service and print the banner again.
 exec sleep infinity

@@ -1,54 +1,25 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# =============================================================================
-# 10-config.sh — Container initialization script
-# Runs once at container start (s6-overlay cont-init.d phase, stage 2).
+# Prepares /data on every start: validates the environment, generates
+# homeserver.yaml on first boot and renders the Synapse overrides, the coturn
+# config and Element Web's config.json from /defaults.
 #
-# IMPORTANT: the shebang MUST use 'with-contenv' so the container's environment
-# variables (set by 'docker run -e' / Unraid template) are available in this
-# script. Without it, s6-overlay v3 runs cont-init.d scripts with an empty
-# environment and SERVER_NAME, POSTGRES_*, etc. would all appear unset.
-# Note: in s6-overlay v3 the binary lives at /command/with-contenv — the
-# /usr/bin/with-contenv path only exists if the symlinks-noarch tarball is
-# installed, which we do NOT install.
+# The shebang needs with-contenv, or s6-overlay v3 runs this script with an empty
+# environment. It is /command/with-contenv because the symlinks-noarch tarball
+# that would add /usr/bin/with-contenv is not installed.
 #
-# Responsibilities:
-#   1. Validate required environment variables
-#   2. Generate homeserver.yaml if it does not yet exist (first boot)
-#   3. Patch listener configuration (bind to 0.0.0.0, enable x_forwarded)
-#   4. Render/overwrite Postgres + performance config overlay
-#   5. Generate TURN secret and render turnserver.conf
-#   6. Render Element Web config.json (always, so domain changes take effect)
-#   7. Fix /data ownership so Synapse can write its files
-#
-# Design decisions:
-#   - Idempotent: safe to re-run; step 2 is skipped when homeserver.yaml exists
-#   - Runs as root; Synapse itself is dropped to PUID:PGID inside the run script
-#   - Uses envsubst for all template rendering to avoid Python/jinja2 dependency
-# =============================================================================
+# No `set -e`: a failed optional step must not leave the later files unrendered,
+# or services such as coturn wait for them forever. Fatal errors exit explicitly.
 
-# Note: we deliberately do NOT use 'set -e' here. Each step has explicit error
-# handling and we want to make a best-effort attempt at rendering all config
-# files even if an earlier optional step fails — otherwise downstream services
-# (especially coturn) would hang waiting for files that never get rendered.
-
-# --- Colour helpers (informational output to container logs) ----------------
 log_info()  { printf '\033[0;32m[init] INFO:  %s\033[0m\n'  "$*"; }
 log_warn()  { printf '\033[0;33m[init] WARN:  %s\033[0m\n'  "$*"; }
 log_error() { printf '\033[0;31m[init] ERROR: %s\033[0m\n'  "$*" >&2; }
 
-# =============================================================================
-# 1. Validate required environment variables
-# =============================================================================
 MISSING=""
 
-# SERVER_NAME is the Matrix domain (e.g. matrix.example.com).
-# It is used by Synapse to construct @user:SERVER_NAME identifiers.
 if [ -z "${SERVER_NAME}" ]; then
     MISSING="${MISSING} SERVER_NAME"
 fi
-
-# Postgres connection details — external container, mandatory.
 if [ -z "${POSTGRES_HOST}" ]; then
     MISSING="${MISSING} POSTGRES_HOST"
 fi
@@ -68,20 +39,16 @@ if [ -n "${MISSING}" ]; then
     exit 1
 fi
 
-# Apply defaults for optional variables
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 REPORT_STATS="${REPORT_STATS:-no}"
 PUID="${PUID:-99}"
 PGID="${PGID:-100}"
 TZ="${TZ:-Europe/Vienna}"
-# TURN: route the relay through a dedicated subdomain / port if you want
-# (defaults to the Matrix domain on 3478).
 TURN_DOMAIN="${TURN_DOMAIN:-$SERVER_NAME}"
 TURN_PORT="${TURN_PORT:-3478}"
-# TURN over TLS (turns:). Enabled automatically when a certificate is mounted at
-# /data/certs (fullchain.pem + privkey.pem); set TURN_TLS_ENABLE=false to force
-# it off, or TURN_TLS_ENABLE=true to require it. coturn uses 'cert'/'pkey' (no
-# 'tls-' prefix) and 'tls-listening-port'; Synapse gets matching turns: URIs.
+# TURN over TLS switches itself on when a certificate is mounted at /data/certs;
+# TURN_TLS_ENABLE forces it either way. coturn's directives are cert and pkey,
+# without a tls- prefix.
 TURN_TLS_CERT="${TURN_TLS_CERT:-/data/certs/fullchain.pem}"
 TURN_TLS_KEY="${TURN_TLS_KEY:-/data/certs/privkey.pem}"
 TURN_TLS_PORT="${TURN_TLS_PORT:-5349}"
@@ -119,7 +86,6 @@ log_info "PUID/PGID      = ${PUID}/${PGID}"
 log_info "REGISTRATION   = ${ENABLE_REGISTRATION}"
 log_info "TURN_ENDPOINT  = ${TURN_DOMAIN}:${TURN_PORT}"
 
-# Apply timezone if tzdata is installed
 if [ -f "/usr/share/zoneinfo/${TZ}" ]; then
     ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime
     echo "${TZ}" > /etc/timezone
@@ -127,40 +93,28 @@ else
     log_warn "Timezone '${TZ}' not found in tzdata; using container default."
 fi
 
-# =============================================================================
-# 2. Ensure /data is writable by PUID:PGID before any Synapse operations
-# =============================================================================
 log_info "Setting ownership of /data to ${PUID}:${PGID} ..."
 chown -R "${PUID}:${PGID}" /data 2>/dev/null || true
 
-# =============================================================================
-# 3. First-boot: generate homeserver.yaml if it does not exist
-# =============================================================================
 HOMESERVER_YAML="/data/homeserver.yaml"
 
 if [ ! -f "${HOMESERVER_YAML}" ]; then
-    log_info "No homeserver.yaml found — running first-boot configuration."
+    log_info "No homeserver.yaml found, running first-boot configuration."
 
-    # The official Synapse image no longer supports --generate-config on its own
-    # startup path. We drive it explicitly here via python -m.
+    # The official image's start script does not handle --generate-config, so the
+    # module is called directly.
     log_info "Generating initial homeserver.yaml via synapse --generate-config ..."
-    # IMPORTANT: cd into /data so any relative paths Synapse writes into the
-    # generated config (media_store_path, uploads_path, log files) are anchored
-    # under the persistent volume instead of the s6 service directory.
-    # Also pass --data-directory explicitly so generate-config writes absolute
-    # /data/* paths into homeserver.yaml.
+    # Relative paths in the generated config resolve against the working
+    # directory, which would otherwise be the s6 service directory, and
+    # --data-directory makes generate-config write absolute /data paths.
     cd /data || exit 1
-    # Guarded: if generation fails we MUST stop here. Continuing would let the
-    # include-append below create a stub homeserver.yaml, which every later
-    # boot mistakes for a real config (generation is skipped when the file
-    # exists) — a permanent crash-loop that is very hard to diagnose.
     if ! gosu "${PUID}:${PGID}" python -m synapse.app.homeserver \
         --server-name "${SERVER_NAME}" \
         --config-path "${HOMESERVER_YAML}" \
         --data-directory /data \
         --generate-config \
         --report-stats="${REPORT_STATS}"; then
-        log_error "synapse --generate-config FAILED — homeserver.yaml was not created."
+        log_error "synapse --generate-config failed: homeserver.yaml was not created."
         log_error "Halting container start so the broken state is visible. Check the error above"
         log_error "(SERVER_NAME, /data permissions), fix it and restart the container."
         exit 1
@@ -168,9 +122,6 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
 
     log_info "homeserver.yaml generated successfully."
 
-    # -------------------------------------------------------------------------
-    # 3b. Generate a cryptographically random TURN secret (if not provided)
-    # -------------------------------------------------------------------------
     if [ -z "${TURN_SECRET}" ]; then
         TURN_SECRET="$(openssl rand -hex 32)"
         log_info "Generated random TURN_SECRET."
@@ -178,20 +129,17 @@ if [ ! -f "${HOMESERVER_YAML}" ]; then
         log_info "Using provided TURN_SECRET."
     fi
 
-    # Persist the TURN_SECRET into a file so it survives container restarts
     echo "${TURN_SECRET}" > /data/.turn_secret
     chown "${PUID}:${PGID}" /data/.turn_secret
     chmod 600 /data/.turn_secret
 
 else
-    log_info "homeserver.yaml already exists — skipping first-boot generation."
+    log_info "homeserver.yaml already exists, skipping first-boot generation."
 
-    # Load persisted TURN_SECRET for coturn template rendering below
     if [ -f "/data/.turn_secret" ]; then
         TURN_SECRET="$(cat /data/.turn_secret)"
     else
-        # Fallback: generate and persist a new secret (edge case: data volume was
-        # partially reset but homeserver.yaml was kept)
+        # /data was partly reset but homeserver.yaml kept.
         TURN_SECRET="$(openssl rand -hex 32)"
         echo "${TURN_SECRET}" > /data/.turn_secret
         chown "${PUID}:${PGID}" /data/.turn_secret
@@ -200,13 +148,9 @@ else
     fi
 fi
 
-# =============================================================================
-# 3c. Idempotent homeserver.yaml patch (runs on EVERY boot)
-#     Guarantees:
-#       - listeners bound to 0.0.0.0 + x_forwarded + tls=false (for NPM)
-#       - media_store_path / uploads_path are absolute under /data so Synapse
-#         never tries to mkdir them inside the read-only s6 service dir.
-# =============================================================================
+# On every boot the 8008 listener is set up for the reverse proxy in front, and
+# relative paths are made absolute under /data, because the working directory of
+# the services is the read-only s6 service directory.
 log_info "Ensuring homeserver.yaml + log.config use absolute paths ..."
 python3 - <<'PYEOF'
 import os, yaml, glob
@@ -217,7 +161,6 @@ with open(cfg_path, "r") as fh:
 
 changed = False
 
-# --- 1) Listeners: 0.0.0.0 + x_forwarded + tls=false (NPM in front) ---
 for listener in cfg.get("listeners", []):
     if listener.get("port") == 8008:
         if listener.get("bind_addresses") != ["0.0.0.0"]:
@@ -227,13 +170,11 @@ for listener in cfg.get("listeners", []):
         if listener.get("tls"):
             listener["tls"] = False; changed = True
 
-# --- 2) Absolute media + uploads paths ---
 if cfg.get("media_store_path") != "/data/media_store":
     cfg["media_store_path"] = "/data/media_store"; changed = True
 if cfg.get("uploads_path") != "/data/uploads":
     cfg["uploads_path"] = "/data/uploads"; changed = True
 
-# --- 3) signing_key_path / log_config: make absolute under /data ---
 for key in ("signing_key_path", "log_config"):
     val = cfg.get(key)
     if isinstance(val, str) and val and not val.startswith("/"):
@@ -246,15 +187,9 @@ if changed:
 else:
     print("[init] homeserver.yaml already correct.")
 
-# --- 4) Patch ALL log.config files in /data: console-only logging ---
-# Synapse generates a <SERVER_NAME>.log.config with a rolling FILE handler
-# whose 'filename' is relative (e.g. 'homeserver.log'). With s6, CWD at
-# service start is the read-only s6 service dir, so the file handler explodes.
-#
-# Fix: REPLACE the entire log config with a clean console-only setup. This
-# means logs go to stdout (visible in 'docker logs' / Unraid log viewer) and
-# no file handler is touched at all. We also rewrite the homeserver.yaml's
-# log_config key to point at this clean file.
+# The generated <SERVER_NAME>.log.config has a rolling file handler with a relative
+# filename, which fails in the read-only s6 service directory. Every log config is
+# replaced with a console-only one, so the logs end up in `docker logs`.
 os.makedirs("/data/logs", exist_ok=True)
 clean_log_cfg = {
     "version": 1,
@@ -281,8 +216,6 @@ clean_log_cfg = {
     "disable_existing_loggers": False,
 }
 
-# Find every existing log.config in /data and replace it. Then point
-# homeserver.yaml's log_config key at the canonical /data/log.config.
 canonical = "/data/log.config"
 with open(canonical, "w") as fh:
     yaml.dump(clean_log_cfg, fh, default_flow_style=False)
@@ -293,7 +226,6 @@ for old_lc in glob.glob("/data/*.log.config"):
         yaml.dump(clean_log_cfg, fh, default_flow_style=False)
     print(f"[init] overwrote stale {old_lc} with clean console-only config.")
 
-# Ensure homeserver.yaml uses the canonical path
 with open(cfg_path) as fh:
     cfg2 = yaml.safe_load(fh) or {}
 if cfg2.get("log_config") != canonical:
@@ -304,20 +236,14 @@ if cfg2.get("log_config") != canonical:
 PYEOF
 chown -R "${PUID}:${PGID}" "${HOMESERVER_YAML}" /data/log.config /data/logs 2>/dev/null || true
 
-# =============================================================================
-# 4. Render homeserver-overrides.yaml from template
-#    The file is loaded by Synapse via a SECOND `--config-path` flag in
-#    /etc/services.d/synapse/run. Synapse has NO in-yaml include_config_files
-#    directive (verified against synapse/config/_base.py: only find_config_files
-#    via -c args / config dirs is honored), so the overrides MUST be passed on
-#    the command line — never via an include directive in homeserver.yaml.
-# =============================================================================
+# Synapse reads the overrides through a second --config-path in
+# services.d/synapse/run. homeserver.yaml cannot include them: Synapse has no
+# include directive (synapse/config/_base.py honours only -c arguments and config
+# directories).
 OVERRIDES_TMPL="/defaults/homeserver-overrides.yaml.tmpl"
 OVERRIDES_OUT="/data/homeserver-overrides.yaml"
 
-# ENABLE_FEDERATION (default 'true'):
-#   true  → federation_domain_whitelist: ~          (allow all = federate with everyone)
-#   false → federation_domain_whitelist: []         (allow none = private island)
+# An empty whitelist makes a private server; ~ federates with everyone.
 ENABLE_FEDERATION="${ENABLE_FEDERATION:-true}"
 case "${ENABLE_FEDERATION}" in
     false|False|FALSE|0|no|No|NO)
@@ -334,9 +260,8 @@ log_info "Rendering homeserver-overrides.yaml from template ..."
 export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SERVER_NAME TURN_SECRET FEDERATION_WHITELIST TURN_DOMAIN TURN_PORT ENABLE_REGISTRATION
 envsubst < "${OVERRIDES_TMPL}" > "${OVERRIDES_OUT}"
 
-# When TURN over TLS is enabled, insert matching turns: URIs right after the
-# turn_uris: line. Kept out of the template (as a post-render sed) so the .tmpl
-# stays valid YAML for the CI template linter.
+# The turns: URIs are inserted after rendering so the template stays valid YAML
+# for the CI template linter.
 if [ "${TURN_TLS_ON}" = "true" ]; then
     TURNS_TMP="$(mktemp)"
     printf '  - "turns:%s:%s?transport=tcp"\n  - "turns:%s:%s?transport=udp"\n' \
@@ -346,16 +271,13 @@ if [ "${TURN_TLS_ON}" = "true" ]; then
 fi
 
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
-# Contains POSTGRES_PASSWORD + TURN_SECRET — owner-only, like /data/.turn_secret
+# Holds POSTGRES_PASSWORD and TURN_SECRET.
 chmod 600 "${OVERRIDES_OUT}"
 
-# Upgrade cleanup: older builds appended an `include_config_files:` block to
-# homeserver.yaml that did nothing — Synapse never honored it, so those installs
-# silently ran on SQLite at /data/homeserver.db with every override (Postgres,
-# federation, TURN) inert. Strip the stale block so the file matches what Synapse
-# actually reads; the overrides are now loaded via the second `--config-path` in
-# /etc/services.d/synapse/run. Guarded on the real file existing so we never
-# CREATE a stub homeserver.yaml here.
+# Installs from before the second --config-path carry an include_config_files
+# block in homeserver.yaml that Synapse never honoured, so they ran on SQLite with
+# every override ignored. The block is stripped so the file shows what Synapse
+# reads; the file check keeps this from creating a stub homeserver.yaml.
 if [ -f "${HOMESERVER_YAML}" ] && grep -q "^include_config_files:" "${HOMESERVER_YAML}"; then
     log_warn "Stripping legacy include_config_files block from homeserver.yaml (never honored by Synapse)"
     sed -i \
@@ -364,18 +286,14 @@ if [ -f "${HOMESERVER_YAML}" ] && grep -q "^include_config_files:" "${HOMESERVER
         "${HOMESERVER_YAML}"
 fi
 
-# Warn if a legacy SQLite database is present — it is now orphaned because Synapse
-# will load homeserver-overrides.yaml (which sets database: psycopg2 → Postgres).
+# A homeserver.db from such an install is orphaned, since the overrides select Postgres.
 if [ -f "/data/homeserver.db" ]; then
-    log_warn "Found /data/homeserver.db — earlier builds misloaded config, so Synapse may have"
+    log_warn "Found /data/homeserver.db: earlier builds misloaded config, so Synapse may have"
     log_warn "been writing to SQLite. With the overrides now active, Synapse will use Postgres."
     log_warn "To keep the SQLite data, stop the container and run synapse_port_db first."
     log_warn "See: https://element-hq.github.io/synapse/latest/postgres.html#porting-from-sqlite"
 fi
 
-# =============================================================================
-# 5. Render turnserver.conf from template
-# =============================================================================
 TURN_TMPL="/defaults/turnserver.conf.tmpl"
 TURN_OUT="/data/turnserver.conf"
 
@@ -384,18 +302,12 @@ export SERVER_NAME TURN_SECRET TURN_TLS_CONF
 envsubst < "${TURN_TMPL}" > "${TURN_OUT}"
 chmod 640 "${TURN_OUT}"
 
-# =============================================================================
-# 6. Render Element Web config.json (always — picks up SERVER_NAME changes)
-# =============================================================================
 ELEMENT_TMPL="/defaults/element-config.json.tmpl"
 ELEMENT_OUT="/var/www/html/element/config.json"
 
-# ELEMENT_EXTRA_FEATURES: optional JSON object merged into Element Web's
-# "features" block (labs/feature flags), e.g. '{"feature_html_topic": true}'.
-# Defaults to {} (no extra features). Validated before use — malformed JSON
-# would otherwise break config.json outright (Element Web fails to load, not
-# just the requested feature), so a bad value is dropped with a warning
-# instead of ever reaching the rendered file.
+# ELEMENT_EXTRA_FEATURES is an optional JSON object for Element Web's "features"
+# block, e.g. '{"feature_html_topic": true}'. Malformed JSON would keep Element
+# Web from loading at all, so a bad value is dropped with a warning.
 if [ -z "${ELEMENT_EXTRA_FEATURES}" ]; then
     ELEMENT_EXTRA_FEATURES='{}'
 fi
@@ -413,41 +325,26 @@ log_info "Rendering Element Web config.json ..."
 export SERVER_NAME ENABLE_REGISTRATION ELEMENT_EXTRA_FEATURES
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
 
-# Final safety net: confirm the rendered config.json is itself valid JSON
-# (envsubst is a blind text substitution, it cannot catch a malformed
-# ELEMENT_EXTRA_FEATURES value that slipped past the check above via some
-# other unforeseen shape). If it is not, Element Web would fail to load
-# entirely, so fail loudly here instead of shipping a broken config.
+# envsubst is blind text substitution, so the rendered file is checked as well.
 if ! python3 -c "import json; json.load(open('${ELEMENT_OUT}'))" >/dev/null 2>&1; then
-    log_error "Rendered Element Web config.json is not valid JSON — check ELEMENT_EXTRA_FEATURES."
+    log_error "Rendered Element Web config.json is not valid JSON, check ELEMENT_EXTRA_FEATURES."
     log_error "Element Web will fail to load until this is fixed and the container is restarted."
 fi
 
-# =============================================================================
-# 7. Ensure /data sub-directories exist with correct ownership
-# =============================================================================
 log_info "Ensuring /data sub-directories exist ..."
 for dir in media_store uploads logs; do
     mkdir -p "/data/${dir}"
     chown "${PUID}:${PGID}" "/data/${dir}"
 done
 
-# =============================================================================
-# 8. Optional: auto-create admin user on first boot
-#    Set ADMIN_USER + ADMIN_PASSWORD in the Unraid template to have an admin
-#    account created automatically. After Synapse is up, the synapse/run script
-#    will pick up /data/.create_admin and register the user, then delete the
-#    marker file. Idempotent: only runs if user does not already exist.
-# =============================================================================
 if [ -n "${ADMIN_USER}" ] && [ -n "${ADMIN_PASSWORD}" ]; then
-    # Hand the creds to the admin-bootstrap service whenever they are set. The
-    # bootstrap is idempotent: it registers a NEW user, or PROMOTES an existing one
-    # to server admin, then deletes this file. We intentionally do NOT gate on
-    # /data/.admin_created — an account that already existed before ADMIN_USER was
-    # set (e.g. self-registered in Element) would otherwise never get the
-    # server-admin flag that Synapse-Admin requires. Clear ADMIN_USER/ADMIN_PASSWORD
-    # once it has worked so it stops running on every restart.
-    log_info "ADMIN_USER='${ADMIN_USER}' set — admin user will be created/promoted after Synapse starts."
+    # The admin-bootstrap service registers the user or promotes an existing one
+    # to server admin, then deletes this file. It is not gated on
+    # /data/.admin_created, so an account that existed before ADMIN_USER was set
+    # (self-registered in Element, say) still gets the server-admin flag the admin
+    # UI requires. Clearing ADMIN_USER and ADMIN_PASSWORD afterwards stops it
+    # running on every restart.
+    log_info "ADMIN_USER='${ADMIN_USER}' set, admin user will be created/promoted after Synapse starts."
     umask 077
     printf '%s\n%s\n' "${ADMIN_USER}" "${ADMIN_PASSWORD}" > /data/.create_admin
     chown "${PUID}:${PGID}" /data/.create_admin

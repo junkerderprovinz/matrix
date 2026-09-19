@@ -1,15 +1,8 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# =============================================================================
-# s6 service: coturn
-# Starts the coturn TURN/STUN server for Matrix voice/video calls.
-#
-# coturn reads its configuration from /data/turnserver.conf which is rendered
-# from the template by 10-config.sh at container startup.
-# =============================================================================
+# coturn, configured by /data/turnserver.conf, which 10-config.sh renders.
 
-# Wait until turnserver.conf has been written by the init script.
-# This handles the edge case where s6 starts services before cont-init.d finishes.
+# In case s6 starts the service before cont-init.d has finished.
 TURN_CONF="/data/turnserver.conf"
 RETRIES=30
 i=0
@@ -23,12 +16,9 @@ while [ ! -f "${TURN_CONF}" ]; do
     i=$((i + 1))
 done
 
-# Run coturn as root so it can open stdout/stderr inherited from s6 and bind
-# privileged ports if needed. coturn drops privileges itself via the
-# proc-user/proc-group directives in turnserver.conf (set to 'nobody').
-# This is the coturn-native way to run as non-root and avoids the
-# 'opening errorlog /dev/stderr failed: Permission denied' issue caused by
-# gosu-dropping before coturn can inherit the supervisor's file descriptors.
+# coturn starts as root and drops to nobody itself (proc-user in turnserver.conf).
+# Dropping earlier with gosu fails with "opening errorlog /dev/stderr failed:
+# Permission denied", because coturn then cannot open the inherited descriptors.
 exec /usr/bin/turnserver \
     -c "${TURN_CONF}" \
     --no-cli \

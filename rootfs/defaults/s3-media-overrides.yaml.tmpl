@@ -1,23 +1,16 @@
-# =============================================================================
-# s3-media-overrides.yaml.tmpl — S3 media storage provider configuration
+# S3 media storage provider. Rendered by 15-s3-media.sh and appended to
+# /data/homeserver-overrides.yaml when S3_MEDIA_ENABLED=true; with the switch off
+# nothing of it is emitted, the same opt-in contract as MAS.
 #
-# Rendered by 15-s3-media.sh and appended to /data/homeserver-overrides.yaml,
-# but ONLY when S3_MEDIA_ENABLED=true. With the switch off nothing from this
-# file is emitted, so the rendered Synapse config stays byte-for-byte identical
-# to an install that never turned this on — same opt-in contract as MAS.
+# store_local keeps every upload in /data/media_store as a hot cache (Synapse looks
+# there before asking a provider), and store_remote with store_synchronous copies
+# each new upload to the bucket before the upload call returns. Existing local
+# media is not migrated; the README section "S3 Media Storage" covers the one-off
+# migrate_media_to_s3.py script.
 #
-# store_local: True keeps every upload on the local /data/media_store as a hot
-# cache (Synapse checks local storage before falling back to a provider), while
-# store_remote + store_synchronous mean every new upload is also durably copied
-# to the S3-compatible bucket before the upload call returns. Existing local
-# media is NOT migrated retroactively — see the README "S3 Media Storage"
-# section for the one-off migrate_media_to_s3.py script if that is wanted.
-#
-# endpoint_url is required (not optional): this feature targets a self-hosted
-# S3-compatible backend (SeaweedFS, Garage, MinIO), never bare AWS, so there is
-# no sensible default to fall back to — 15-s3-media.sh fails loudly if it is
-# unset rather than silently talking to AWS's real endpoint.
-# =============================================================================
+# endpoint_url has no default because the feature targets self-hosted
+# S3-compatible stores (SeaweedFS, Garage, MinIO), so 15-s3-media.sh fails when it
+# is unset rather than quietly talking to AWS.
 
 media_storage_providers:
   - module: s3_storage_provider.S3StorageProviderBackend

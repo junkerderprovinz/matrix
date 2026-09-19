@@ -1,27 +1,19 @@
-# =============================================================================
-# mas-overrides.yaml.tmpl — Synapse-side configuration for delegated auth
+# Synapse side of delegated auth. Rendered by 20-mas.sh and appended to
+# /data/homeserver-overrides.yaml when AUTH_ENABLED=true. With the switch off
+# nothing of it is emitted, not even `matrix_authentication_service: {enabled:
+# false}`, so a homeserver that pulls a newer image keeps exactly its old config.
 #
-# Rendered by 20-mas.sh and appended to /data/homeserver-overrides.yaml, but
-# ONLY when AUTH_ENABLED=true. With the switch off nothing from this file is
-# emitted — not even `matrix_authentication_service: {enabled: false}` — so the
-# rendered Synapse config stays byte-for-byte identical to a pre-MAS install.
-# That is the whole safety property of the opt-in: an existing homeserver that
-# pulls a newer image must not notice this feature exists.
+# Two Synapse constraints apply:
 #
-# Two Synapse booby-traps this file has to respect:
+#   1. `enable_registration: true` with delegated auth is a ConfigError
+#      ("Registration cannot be enabled when OAuth delegation is enabled") that
+#      stops Synapse, so 20-mas.sh strips the enable_registration lines from the
+#      rendered overrides before appending this block.
+#   2. `experimental_features` may appear only once in the merged YAML, so
+#      20-mas.sh removes the base template's `experimental_features: {}`.
 #
-#   1. `enable_registration: true` together with delegated auth is a hard
-#      ConfigError ("Registration cannot be enabled when OAuth delegation is
-#      enabled") — Synapse refuses to START, it is not a warning. 20-mas.sh
-#      strips the enable_registration lines from the rendered overrides before
-#      appending this block.
-#   2. `experimental_features` may appear only once in the merged YAML. The base
-#      template ends with `experimental_features: {}`, so 20-mas.sh removes that
-#      line rather than letting this one shadow it.
-#
-# password_config.enabled and enable_3pid_changes are deliberately NOT set here:
-# Synapse defaults both to `not auth_delegated`, so they flip on their own.
-# =============================================================================
+# password_config.enabled and enable_3pid_changes stay unset: Synapse defaults
+# both to `not auth_delegated`.
 
 matrix_authentication_service:
   enabled: true
@@ -30,9 +22,8 @@ matrix_authentication_service:
   secret_path: /data/mas/matrix.secret
 
 experimental_features:
-  # MSC4108: QR code login. Requires delegated auth to be on, which is why this
-  # cannot be offered without MAS. Synapse itself is the rendezvous server, so no
-  # additional service is involved. msc4108_delegation_endpoint stays unset —
-  # having both is a ConfigError — and msc4388_mode stays off, since Synapse does
-  # not advertise MSC4388 and neither element-web nor matrix-js-sdk consume it.
+  # MSC4108, QR code login, needs delegated auth; Synapse itself is the rendezvous
+  # server. msc4108_delegation_endpoint stays unset, since setting both is a
+  # ConfigError, and msc4388_mode stays off: Synapse does not advertise MSC4388
+  # and neither element-web nor matrix-js-sdk use it.
   msc4108_enabled: ${AUTH_QR_LOGIN}

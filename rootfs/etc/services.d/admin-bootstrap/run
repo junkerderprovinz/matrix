@@ -1,22 +1,15 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# =============================================================================
-# admin-bootstrap/run — one-shot service that creates the admin user
-#
-# Reads /data/.create_admin (written by 10-config.sh when ADMIN_USER and
-# ADMIN_PASSWORD env vars are set), waits for Synapse to be ready on port 8008,
-# then registers the user as admin using register_new_matrix_user.
-#
-# After successful creation, marks /data/.admin_created and removes the
-# temporary credential file. The service then sleeps forever — s6 will not
-# restart it (this is the simplest "run-once" pattern under s6-overlay v3).
-# =============================================================================
+# One-shot service that creates the admin account from /data/.create_admin, which
+# 10-config.sh writes when ADMIN_USER and ADMIN_PASSWORD are set. It waits for
+# Synapse, registers the user with register_new_matrix_user, marks
+# /data/.admin_created and removes the credential file. Afterwards it sleeps, so
+# s6 does not restart it.
 
 set -u
 
-# cd into /data — register_new_matrix_user loads homeserver.yaml which
-# triggers Synapse's config validator; relative paths in the config get
-# resolved against CWD, and the s6 service dir is read-only.
+# register_new_matrix_user validates homeserver.yaml, which resolves relative
+# paths against the working directory, and the s6 service directory is read-only.
 cd /data || { echo "[admin-bootstrap] FATAL: cannot cd into /data" >&2; exec sleep infinity; }
 
 CRED_FILE="/data/.create_admin"
@@ -24,28 +17,21 @@ DONE_FILE="/data/.admin_created"
 
 log() { printf '\033[0;36m[admin-bootstrap] %s\033[0m\n' "$*"; }
 
-# Nothing to do? Sleep forever (s6 keeps service alive but idle)
 if [ ! -f "$CRED_FILE" ]; then
-    log "No credential file present — nothing to do."
+    log "No credential file present, nothing to do."
     exec sleep infinity
 fi
 
-# ---------------------------------------------------------------- MAS mode ---
-# Under delegated auth this whole service is inoperative, and silently so, which
-# is the dangerous part. Both of its mechanisms are dead:
-#
-#   * register_new_matrix_user posts to /_synapse/admin/v1/register, and Synapse
-#     does not register that servlet when auth is delegated.
-#   * the Postgres fallback (UPDATE users SET admin=1) has no effect either,
-#     because synapse/api/auth/mas.py authorises on the token scope
-#     urn:synapse:admin:*, not on the users.admin column.
-#
-# So rather than retrying against endpoints that will never answer, hand the user
-# the commands that do work. The credential file is left in place: switching
-# AUTH_ENABLED back off should still bootstrap the admin.
+# Under delegated auth neither mechanism of this service works, and both would
+# fail silently: Synapse does not register /_synapse/admin/v1/register, which
+# register_new_matrix_user posts to, and the Postgres fallback has no effect
+# because synapse/api/auth/mas.py authorises on the token scope
+# urn:synapse:admin:*, not on users.admin. So the user gets the commands that do
+# work. The credential file stays, so switching AUTH_ENABLED off again still
+# bootstraps the admin.
 case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|on)
-        log "AUTH_ENABLED is on — ADMIN_USER/ADMIN_PASSWORD cannot be applied through Synapse."
+        log "AUTH_ENABLED is on, so ADMIN_USER/ADMIN_PASSWORD cannot be applied through Synapse."
         log "Under delegated auth, accounts and admin rights live in MAS. Use instead:"
         log "  docker exec -it <container> mas-cli manage register-user --config /data/mas/config.yaml \\"
         log "      --yes --admin --password '<password>' <username>"
@@ -57,7 +43,6 @@ case "$(printf '%s' "${AUTH_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
         ;;
 esac
 
-# Wait for Synapse to respond on /health (max 120s)
 log "Waiting for Synapse to become ready on http://127.0.0.1:8008/health ..."
 i=0
 while [ $i -lt 60 ]; do
@@ -70,16 +55,15 @@ while [ $i -lt 60 ]; do
 done
 
 if [ $i -ge 60 ]; then
-    log "WARNING: Synapse did not become ready within 120s — aborting admin creation."
+    log "WARNING: Synapse did not become ready within 120s; aborting admin creation."
     exec sleep infinity
 fi
 
-# Read credentials
 USER=$(sed -n '1p' "$CRED_FILE")
 PASS=$(sed -n '2p' "$CRED_FILE")
 
 if [ -z "$USER" ] || [ -z "$PASS" ]; then
-    log "ERROR: credentials file is malformed — skipping."
+    log "ERROR: credentials file is malformed, skipping."
     rm -f "$CRED_FILE"
     exec sleep infinity
 fi
@@ -99,19 +83,17 @@ if [ $rc -eq 0 ]; then
     : > "$DONE_FILE"
     rm -f "$CRED_FILE"
 else
-    # Only an explicit "already exists" answer from Synapse counts as done.
-    # Any other non-zero rc (connection refused, wrong registration secret,
-    # ...) must KEEP the credential file so the next restart retries.
+    # Only an explicit "already exists" counts as done; any other failure keeps
+    # the credential file so the next restart retries.
     case "$out" in
         *"already taken"*|*M_USER_IN_USE*)
-            # register_new_matrix_user -a only sets the server-admin flag when it
-            # CREATES the account; for a pre-existing user (e.g. self-registered in
-            # Element) it does nothing — so the account stays a normal user and
-            # Synapse-Admin fails with "Server communication error" (403 on the
-            # /_synapse/admin API). Promote it directly in Postgres, the documented
-            # way to grant server admin. psycopg2 ships in the Synapse image and the
-            # POSTGRES_* env is already present (with-contenv).
-            log "User '$USER' already exists — ensuring it is a Synapse server admin ..."
+            # register_new_matrix_user -a sets the server-admin flag only on a new
+            # account, so a user who self-registered in Element stays a normal user
+            # and the admin UI fails with "Server communication error" (403 on
+            # /_synapse/admin). The flag is set in Postgres directly, the documented
+            # way to grant server admin; psycopg2 and the POSTGRES_* variables are
+            # already there.
+            log "User '$USER' already exists, ensuring it is a Synapse server admin ..."
             if python3 - "$USER" <<'PY'
 import os, sys
 import psycopg2
@@ -131,7 +113,7 @@ PY
                 : > "$DONE_FILE"
                 rm -f "$CRED_FILE"
             else
-                log "WARNING: could not reach Postgres to promote '$USER' — will retry on next restart."
+                log "WARNING: could not reach Postgres to promote '$USER'; will retry on next restart."
             fi
             ;;
         *)
@@ -141,5 +123,5 @@ PY
     esac
 fi
 
-# Service stays alive but idle — s6 considers this "running" so won't restart
+# Idle, so s6 sees the service running and does not restart it.
 exec sleep infinity

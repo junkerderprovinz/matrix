@@ -1,38 +1,25 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
-# =============================================================================
-# 25-mas-migrate.sh — one-shot syn2mas migration of existing Synapse accounts
+# One-shot syn2mas migration of existing Synapse accounts. It runs in
+# cont-init.d, after 20-mas.sh, because Synapse has to be offline during
+# `syn2mas migrate`: s6 starts the synapse service only once every cont-init
+# script has returned, so the migration cannot race a running homeserver.
 #
-# Runs after 20-mas.sh, and — this is the whole point of putting it here —
-# BEFORE any service starts.
+# It is the one irreversible step of the feature; once anybody has signed in to
+# MAS, only a database restore undoes it. So:
 #
-# ------------------------------------------------------- why cont-init.d -----
-# Upstream is emphatic that Synapse must be offline during `syn2mas migrate`.
-# Every "run this by hand" recipe therefore depends on the operator remembering
-# to stop the homeserver first, and on nothing restarting it midway. In
-# cont-init.d that requirement is not a instruction to follow but a property of
-# the environment: s6 has not started the synapse service yet and will not until
-# every cont-init script has returned. The migration simply cannot race a
-# running homeserver from here.
-#
-# ------------------------------------------------------------ safety ---------
-# This is the one irreversible step in the whole feature. Once MAS has been
-# started and anybody has signed in, only a database restore undoes it. So:
-#
-#   * It never runs unless AUTH_MIGRATE is explicitly true. Default is off.
-#   * It never runs twice: a marker file is written on success and checked first.
-#     Leaving AUTH_MIGRATE=true set is therefore harmless, which matters because
-#     people forget to unset things.
-#   * It runs `check` first and refuses on any error. Then a `--dry-run`, which
-#     upstream restores to an empty MAS database afterwards, so a failure there
-#     costs nothing and catches the same problems the real run would hit.
-#   * Any failure exits non-zero, which stops the container (see
-#     S6_BEHAVIOUR_IF_STAGE2_FAILS in the Dockerfile) rather than starting a
-#     homeserver whose accounts are in an unknown half-migrated state.
+#   * It runs only when AUTH_MIGRATE is true.
+#   * It runs once: a marker file is written on success and checked first, so
+#     leaving AUTH_MIGRATE=true set is harmless.
+#   * `check` runs first and any error stops it. A `--dry-run` follows, which
+#     upstream rolls back to an empty MAS database, so it catches the problems
+#     the real run would hit at no cost.
+#   * Any failure exits non-zero and stops the container (see
+#     S6_BEHAVIOUR_IF_STAGE2_FAILS in the Dockerfile) instead of starting a
+#     homeserver whose accounts are half migrated.
 #
 # syn2mas never writes to the Synapse database, so a failure before the MAS
 # database is populated leaves the original untouched.
-# =============================================================================
 
 log_info()  { printf '\033[0;32m[migrate] INFO:  %s\033[0m\n'  "$*"; }
 log_warn()  { printf '\033[0;33m[migrate] WARN:  %s\033[0m\n'  "$*"; }
@@ -41,13 +28,11 @@ log_error() { printf '\033[0;31m[migrate] ERROR: %s\033[0m\n'  "$*" >&2; }
 MAS_DIR=/data/mas
 MARKER="${MAS_DIR}/.migrated"
 
-# Both Synapse config files, in the same order the synapse service loads them.
-# The database connection lives in the OVERRIDES file, not in homeserver.yaml —
-# passing only the latter would point syn2mas at the generated SQLite defaults
-# instead of the real PostgreSQL database.
+# Both config files, in the order the synapse service loads them: the database
+# connection is in the overrides, and homeserver.yaml alone would point syn2mas
+# at the generated SQLite defaults.
 SYN_ARGS="--synapse-config /data/homeserver.yaml --synapse-config /data/homeserver-overrides.yaml"
 
-# --- Gating ------------------------------------------------------------------
 case "$(printf '%s' "${AUTH_MIGRATE:-false}" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|on) : ;;
     *) exit 0 ;;
@@ -70,11 +55,10 @@ if [ -f "${MARKER}" ]; then
 fi
 
 if [ ! -s "${MAS_DIR}/config.yaml" ]; then
-    log_error "${MAS_DIR}/config.yaml is missing — 20-mas.sh did not complete."
+    log_error "${MAS_DIR}/config.yaml is missing; 20-mas.sh did not complete."
     exit 1
 fi
 
-# --- 1. Check ----------------------------------------------------------------
 # Exit code 10 means the setup is not migratable; 11 means warnings only.
 log_info "Checking whether this deployment can be migrated ..."
 mas-cli syn2mas check --config "${MAS_DIR}/config.yaml" ${SYN_ARGS}
@@ -90,9 +74,7 @@ case "${rc}" in
         ;;
 esac
 
-# --- 2. Dry run --------------------------------------------------------------
-# Writes to the MAS database and then restores it to empty, so this exercises
-# the real code path without committing to anything.
+# The dry run writes to the MAS database and then empties it again.
 log_info "Performing a dry run ..."
 if ! mas-cli syn2mas migrate --dry-run --config "${MAS_DIR}/config.yaml" ${SYN_ARGS}; then
     log_error "The dry run failed. Nothing has been migrated and both databases are intact."
@@ -100,11 +82,10 @@ if ! mas-cli syn2mas migrate --dry-run --config "${MAS_DIR}/config.yaml" ${SYN_A
 fi
 log_info "Dry run succeeded."
 
-# --- 3. The real thing -------------------------------------------------------
 log_warn "Migrating accounts for real now. Synapse is not running yet, which is exactly"
 log_warn "the offline window this needs. Do not interrupt the container."
 if ! mas-cli syn2mas migrate --config "${MAS_DIR}/config.yaml" ${SYN_ARGS}; then
-    log_error "Migration FAILED partway through."
+    log_error "Migration failed partway through."
     log_error "Your Synapse database was not written to. The MAS database may be partly"
     log_error "populated: drop and recreate it before trying again, e.g."
     log_error "  DROP DATABASE ${AUTH_POSTGRES_DB:-mas}; CREATE DATABASE ${AUTH_POSTGRES_DB:-mas} TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C';"
