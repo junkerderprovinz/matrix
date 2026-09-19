@@ -1,4 +1,4 @@
-# Matrix All-in-One — task runner. Run `just` or `just --list` to see recipes.
+# Matrix All-in-One task runner. Run `just` or `just --list` to see recipes.
 # POSIX sh only. Needs docker for build/smoke/scan; the lint recipes skip
 # cleanly when their tool is missing (CI always runs them).
 
@@ -41,13 +41,13 @@ smoke: build-smoke
             echo "Synapse /health responded after ${i}s"; exit 0
         fi
         if [ -z "$(docker ps -q --filter name=mx-smoke$)" ]; then
-            echo "container exited early — logs:"; docker logs mx-smoke || true; exit 1
+            echo "container exited early, logs:"; docker logs mx-smoke || true; exit 1
         fi
         sleep 1
     done
-    echo "/health did not respond within 180s — logs:"; docker logs mx-smoke || true; exit 1
+    echo "/health did not respond within 180s, logs:"; docker logs mx-smoke || true; exit 1
 
-# Lint the Dockerfile (hadolint, same ignores + threshold as CI)
+# Lint the Dockerfile (hadolint, CI's threshold)
 lint-docker:
     hadolint --failure-threshold warning --ignore DL3008 --ignore DL3009 --ignore DL3059 --ignore SC2086 Dockerfile
 
@@ -55,7 +55,7 @@ lint-docker:
 lint-sh:
     #!/usr/bin/env sh
     set -eu
-    if ! command -v shellcheck >/dev/null 2>&1; then echo "shellcheck not installed — skipping (CI runs it)"; exit 0; fi
+    if ! command -v shellcheck >/dev/null 2>&1; then echo "shellcheck not installed, skipping (CI runs it)"; exit 0; fi
     scripts=$(find rootfs/ -type f \( -name "*.sh" -o -name "run" \))
     # shellcheck disable=SC2086
     shellcheck -S warning -x -e SC1091 $scripts
@@ -65,7 +65,7 @@ lint-sh:
 lint-yaml:
     #!/usr/bin/env sh
     set -eu
-    if ! command -v yamllint >/dev/null 2>&1; then echo "yamllint not installed — skipping (CI runs it)"; exit 0; fi
+    if ! command -v yamllint >/dev/null 2>&1; then echo "yamllint not installed, skipping (CI runs it)"; exit 0; fi
     yamllint -d '{extends: default, rules: {line-length: {max: 160}, truthy: {allowed-values: ["true", "false", "on", "off", "yes", "no"]}}}' .github/workflows/
 
 # Validate the envsubst config templates parse as YAML (mirrors CI)
@@ -84,16 +84,16 @@ check-templates:
         print("\n".join(errs), file=sys.stderr)
         sys.exit(1)
 
-# Run every linter (Dockerfile + shell + YAML + templates)
+# Run every linter (Dockerfile, shell, YAML, templates)
 lint: lint-docker lint-sh lint-yaml check-templates
 
 # Scan the working tree for committed secrets (gitleaks)
 secrets:
     gitleaks dir . --redact --no-banner
 
-# Trivy CVE scan of the smoke image (HIGH/CRITICAL, report-only — like CI)
+# Trivy CVE scan of the smoke image (HIGH/CRITICAL, report-only like CI)
 scan: build-smoke
     trivy image --severity HIGH,CRITICAL --ignore-unfixed {{smoke_image}}
 
-# Full local gate before pushing: all linters + secret scan
+# Full local gate before pushing: all linters and the secret scan
 check: lint secrets
