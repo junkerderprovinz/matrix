@@ -1,31 +1,19 @@
 /**
- * Generates the Matrix README banners (house banner convention, theme-adaptive):
- *   matrix-banner.svg / .png      : white 1600x500 - the "[m]" mark on the left,
- *                                   the "matrix" wordmark + claim to the right.
- *   matrix-banner-dark.svg / .png : same layout on GitHub-dark #0d1117 with light
- *                                   text, served via <picture> in the README.
+ * Generates the README banners: matrix-banner.svg/.png on white and
+ * matrix-banner-dark.svg/.png on GitHub's dark #0d1117, both 1600x500 with the
+ * "[m]" mark on the left and the wordmark and claim to its right.
  *
- * There are no hell/dunkel logo masters - icon.png is the only [m] source (black
- * mark on an opaque white box, RGB, no alpha). Both themes embed that raster
- * VERBATIM; the dark theme recolours it with an feColorMatrix (luminance -> alpha,
- * RGB -> constant light tint), which turns the white box transparent and the mark
- * light WITHOUT touching the logo geometry.
+ * icon.png (a black mark on an opaque white box) is the only source of the mark, so
+ * both themes embed that raster unchanged and the dark one recolours it with an
+ * feColorMatrix. matrix-banner-logo.png/.svg is the logo-only banner the support
+ * thread uses; keep it.
  *
- * Brand font: matrix.org's wordmark is Helvetica Neue Bold (matrix.org/branding).
- * Helvetica isn't on Windows, so we use its metric-identical clone Arial Bold from
- * the local install, rendered to PATHS only (geometry committed, never the font file
- * - same approach as the JDownloader banner's Arial Black). The claim uses Lato, the
- * shared claim font across all repos (OFL, fetched at runtime, never committed).
+ * The wordmark is Arial Bold, the metric clone of matrix.org's Helvetica Neue Bold,
+ * and the claim is Lato, fetched at run time. Both are rendered to paths so no font
+ * file is committed. Glyph outlines are transformed by hand because opentype's
+ * getPath() sometimes emits NaN coordinates.
  *
- * The "[m]" logo is embedded from icon.png (there is no vector icon.svg). The OLD
- * logo-only banner is preserved as matrix-banner-logo.png/.svg - the support thread
- * uses that one; do not delete it.
- *
- * Text is converted to SVG paths by transforming each glyph's raw outline by hand
- * (opentype's getPath() intermittently emits NaN coords in file execution), so the
- * SVG is self-contained and the output is asserted NaN-free before writing.
- *
- * Deps: `npm i -g @resvg/resvg-js opentype.js`. Run: node .github/assets/gen-banner.mjs
+ * Needs `npm i -g @resvg/resvg-js opentype.js`. Run: node .github/assets/gen-banner.mjs
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -40,25 +28,22 @@ const opentype = require(`${gRoot}/opentype.js`);
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
-// ---- content + styling -----------------------------------------------------
 const NAME = "matrix"; // lowercase, exactly like the official [matrix] wordmark
 const CLAIM = "Text like nobody's reading. Because nobody can.";
-const NAME_FONT = "C:/Windows/Fonts/arialbd.ttf"; // Arial Bold = Helvetica metric clone
+const NAME_FONT = "C:/Windows/Fonts/arialbd.ttf";
 const W = 1600, H = 500;
 
-// Theme pair (house rule): text CONTENT/fonts/sizes identical, only colours flip.
-// dark.logoTint recolours the verbatim-embedded icon.png; light embeds it as-is
-// (its opaque white box is invisible on the white background).
+// The themes differ only in colour. Without a logoTint icon.png is embedded as is,
+// its white box disappearing into the white background.
 const THEMES = [
   { suffix: "", bg: "#ffffff", name: "#1f2328", claim: "#5a5d5e", logoTint: null },
   { suffix: "-dark", bg: "#0d1117", name: "#e6edf3", claim: "#9aa4ad", logoTint: "#e6edf3" },
 ];
 const LH = 508; // [m] logo box (icon.png is square with internal padding)
 const LW = LH;
-let nameSize = 132; // house banner standard (auto-shrinks below if too wide)
+let nameSize = 132; // shrinks below when the group gets too wide
 let claimSize = 44; const gap = 70, lineGap = 8;
 const MAX_GROUP = W - 160;
-// ---------------------------------------------------------------------------
 
 const nameFont = opentype.parse(loadLocal(NAME_FONT));
 const latoFile = join(tmpdir(), "Matrix-Lato-Regular.ttf");
@@ -77,8 +62,6 @@ async function ensureFont(file, url) {
   }
 }
 
-// Per-glyph: transform each glyph's own outline (font units) by hand - scale +
-// baseline flip + advance. Avoids opentype's getPath() (NaN bug); pure finite math.
 function glyphRunWidth(font, text, size) {
   const scale = size / font.unitsPerEm;
   let w = 0;
@@ -107,17 +90,16 @@ function glyphRunPath(font, text, x, baseline, size) {
 
 const em = (f, s) => s / f.unitsPerEm;
 
-// Shrink the wordmark until the logo + name group fits the card with margins.
 while (nameSize > 100 && LW + gap + glyphRunWidth(nameFont, NAME, nameSize) > MAX_GROUP) {
   nameSize -= 2;
 }
 const nameW = glyphRunWidth(nameFont, NAME, nameSize);
 const claimW = glyphRunWidth(claimFont, CLAIM, claimSize);
 const groupW = LW + gap + Math.max(nameW, claimW);
-const startX = 165; // left-anchored (house banner standard)
-const LX = startX - 55, LY = (H - LH) / 2; // -55 cancels icon.png's internal pad so the visible mark left-anchors at startX (165)
-const textX = startX + LW - 110 + gap; // -110 cancels the icon.png L+R padding (cf. LX -55) so text meets the VISIBLE mark
-while (claimSize > 24 && textX + glyphRunWidth(claimFont, CLAIM, claimSize) > W - 40) claimSize -= 1; // keep the long claim on-canvas
+const startX = 165;
+const LX = startX - 55, LY = (H - LH) / 2; // -55 cancels icon.png's padding so the visible mark starts at startX
+const textX = startX + LW - 110 + gap; // -110 cancels the padding on both sides of icon.png
+while (claimSize > 24 && textX + glyphRunWidth(claimFont, CLAIM, claimSize) > W - 40) claimSize -= 1;
 
 const nameAsc = nameFont.ascender * em(nameFont, nameSize);
 const nameDesc = -nameFont.descender * em(nameFont, nameSize);
@@ -129,14 +111,13 @@ const claimBaseline = nameBaseline + nameDesc + lineGap + claimAsc;
 const namePath = glyphRunPath(nameFont, NAME, textX, nameBaseline, nameSize);
 const claimPath = glyphRunPath(claimFont, CLAIM, textX, claimBaseline, claimSize);
 if (namePath.includes("NaN") || claimPath.includes("NaN")) {
-  throw new Error("text path contains NaN - aborting");
+  throw new Error("text path contains NaN");
 }
 
-// Embed the "[m]" mark from icon.png (no vector available) as a data URI.
-// tint=null: verbatim. tint set: feColorMatrix maps luminance -> alpha (black
-// mark opaque, white box transparent; 1.15 factor snaps the near-black #1a1a1a
-// mark to full alpha) and paints all pixels the constant tint colour. sRGB
-// interpolation keeps the anti-aliasing edges from the sRGB-authored raster.
+// With a tint, the colour matrix maps luminance to alpha (the black mark opaque, the
+// white box transparent; the factor 1.15 lifts the near-black #1a1a1a to full alpha)
+// and paints every pixel in the tint. sRGB interpolation keeps the anti-aliased
+// edges of the sRGB raster.
 const iconB64 = readFileSync(join(__dir, "icon.png")).toString("base64");
 function logoMark(tint) {
   const img = `<image x="${LX.toFixed(1)}" y="${LY.toFixed(1)}" width="${LW}" height="${LH}" href="data:image/png;base64,${iconB64}"`;
@@ -149,9 +130,8 @@ function logoMark(tint) {
     `0 0 0 0 ${b}`,
     `${(-0.2126 * f).toFixed(4)} ${(-0.7152 * f).toFixed(4)} ${(-0.0722 * f).toFixed(4)} 0 ${f}`,
   ].join("  ");
-  // x/y/width/height clamp the filter region to the image bbox - the default
-  // -10%/120% margin would otherwise be painted opaque by the constant alpha
-  // offset (a tint-coloured frame around the logo).
+  // The filter region is clamped to the image because the constant alpha offset
+  // would paint the default -10%/120% margin as a frame around the logo.
   return `<filter id="tint" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${values}"/></filter>
   ${img} filter="url(#tint)"/>`;
 }

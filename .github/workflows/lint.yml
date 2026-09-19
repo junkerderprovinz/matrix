@@ -1,15 +1,3 @@
-# =============================================================================
-# lint.yml — Static analysis for Dockerfile and shell scripts
-#
-# Runs on:
-#   - Pull Requests (any branch)
-#   - Push to main
-#
-# Tools:
-#   - hadolint:   Dockerfile linting (https://github.com/hadolint/hadolint)
-#   - shellcheck: Shell script static analysis (https://www.shellcheck.net)
-# =============================================================================
-
 name: Lint
 
 on:
@@ -22,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  # Required by reviewdog to post inline PR annotations (optional enhancement)
   pull-requests: read
 
 env:
@@ -43,10 +30,8 @@ jobs:
         uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: Dockerfile
-          # DL3008: pin apt package versions — acceptable for a wrapper image
-          #          that deliberately tracks upstream
-          # DL3009: delete apt lists — already handled with rm -rf /var/lib/apt/lists/*
-          # SC2086: double-quote variable references — shellcheck handles these in .sh files
+          # DL3008: a wrapper image tracks upstream, so apt versions stay unpinned.
+          # DL3009: the apt lists are removed with rm -rf /var/lib/apt/lists/*.
           ignore: DL3008,DL3009
           failure-threshold: warning
 
@@ -65,8 +50,7 @@ jobs:
 
       - name: Run shellcheck on all shell scripts
         run: |
-          # Find all executable shell scripts in rootfs/
-          # Explicitly include scripts without .sh extension (s6 run scripts)
+          # The s6 run scripts have no .sh extension.
           SCRIPTS=$(find rootfs/ -type f \( -name "*.sh" -o -name "run" \))
 
           if [ -z "${SCRIPTS}" ]; then
@@ -78,10 +62,6 @@ jobs:
           echo "${SCRIPTS}"
           echo "---"
 
-          # shellcheck:
-          #   -S warning: treat warnings as errors
-          #   -x:         follow sourced files
-          #   -e SC1091:  allow sourcing files not present at lint time
           # shellcheck disable=SC2086
           shellcheck -S warning -x -e SC1091 ${SCRIPTS}
 

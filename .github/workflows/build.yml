@@ -1,28 +1,13 @@
-# =============================================================================
-# build.yml — Matrix All-in-One Docker Image Build & Push
-#
-# Triggers:
-#   - Hourly cron: checks for new Synapse releases and builds if needed
-#   - workflow_dispatch: manual trigger (optionally force-rebuild)
-#   - push to main: always builds and pushes latest
-#
-# Output: multi-arch image (linux/amd64, linux/arm64) pushed to
-#         ghcr.io/junkerderprovinz/matrix — and, once the DOCKERHUB_USERNAME
-#         variable + DOCKERHUB_TOKEN secret are set together, mirrored to
-#         docker.io/<DOCKERHUB_USERNAME>/matrix — with tags:
-#           :latest
-#           :v1.x.y       (full Synapse version tag)
-#           :1.x.y        (without leading 'v')
-# =============================================================================
+# Builds the multi-arch image for the latest Synapse release and pushes it to GHCR,
+# and to Docker Hub once DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are both set.
 
 name: Build & Push Docker Image
 
 on:
-  # Run every hour to catch new Synapse releases
+  # Hourly, to pick up new Synapse releases
   schedule:
     - cron: '0 * * * *'
 
-  # Allow manual re-runs from the GitHub Actions UI
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -34,7 +19,6 @@ on:
           - 'false'
           - 'true'
 
-  # Build on every push to main (e.g. after updating Dockerfile or scripts)
   push:
     branches:
       - main
@@ -52,21 +36,16 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/junkerderprovinz/matrix
-  # Whether the Docker Hub mirror is fully configured. Evaluated once here because
-  # `secrets` is not available in a step-level `if:` — only the variable would be
-  # readable there, which is exactly the half-check that let a rotated token take
-  # the whole job down.
+  # Evaluated here because a step-level `if:` cannot read `secrets`, and checking
+  # the variable alone lets a missing token fail the whole job.
   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
   DOCKERHUB_READY: ${{ vars.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
-  # NOTE: component versions (Element Web, Ketesa, s6-overlay) are pinned in the
-  # Dockerfile ARGs and deliberately NOT repeated here. They used to be listed as
-  # build-args below, which silently overrode the Dockerfile and meant Renovate
-  # (whose custom managers match the Dockerfile ARG lines) bumped values that
-  # never reached the published image. Synapse is the one exception: it is
-  # resolved to the latest upstream release at build time, see the step below.
+  # Element Web, Ketesa and s6-overlay are pinned only in the Dockerfile ARGs,
+  # where Renovate updates them; a build-arg here would override those pins.
+  # Synapse is resolved to the latest release at build time, see below.
+
   # Opt into Node.js 24 for all JavaScript actions to silence the
-  # deprecation warning about Node.js 20. Safe — runner already ships
-  # Node 24, the actions run on it without code changes.
+  # deprecation warning about Node.js 20.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -75,20 +54,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------------------------------------------------
-      # Checkout
-      # -----------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # -----------------------------------------------------------------------
-      # Determine the latest Synapse release tag
-      # -----------------------------------------------------------------------
       - name: Get latest Synapse release tag
         id: synapse
         env:
-          # Authenticated requests get 5000 req/h instead of 60 — essential
-          # for hourly schedule runs sharing a GitHub-Actions egress IP pool.
+          # Authenticated requests get 5000 per hour instead of 60, which hourly
+          # runs on shared runner IPs need.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=""
@@ -111,17 +84,12 @@ jobs:
             exit 1
           fi
 
-          # Strip leading 'v' for the version-without-v tag
           TAG_BARE="${TAG#v}"
 
           echo "tag=${TAG}"      >> "${GITHUB_OUTPUT}"
           echo "tag_bare=${TAG_BARE}" >> "${GITHUB_OUTPUT}"
           echo "Synapse latest release: ${TAG}"
 
-      # -----------------------------------------------------------------------
-      # Check whether we have already published an image for this exact tag.
-      # If so, skip the build (unless force_rebuild=true or it's a push event).
-      # -----------------------------------------------------------------------
       - name: Check if image already exists
         id: check
         run: |
@@ -133,18 +101,15 @@ jobs:
           EVENT="${{ github.event_name }}"
 
           if [ "${EVENT}" = "push" ]; then
-            echo "Push event — always rebuilding."
+            echo "Push event: always rebuilding."
             SKIP="false"
           elif [ "${FORCE}" = "true" ]; then
-            echo "Force rebuild requested — skipping existence check."
+            echo "Force rebuild requested: skipping existence check."
             SKIP="false"
           else
-            # Skip only when the tag exists on EVERY registry we publish to. Checking
-            # GHCR alone meant that turning the Docker Hub mirror on later, for a tag
-            # GHCR already had, made scheduled runs skip forever and Hub stayed empty —
-            # while the CA template points users at the Hub image. A missing tag on
-            # either side is a reason to build.
-            # docker manifest inspect returns 0 if the manifest exists.
+            # Build when any registry lacks the tag. A mirror switched on later would
+            # otherwise never get the current release, and the CA template pulls
+            # from Docker Hub.
             MISSING=""
             if ! docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
               MISSING="${MISSING} ${IMAGE}"
@@ -157,19 +122,16 @@ jobs:
             fi
 
             if [ -z "${MISSING}" ]; then
-              echo "Image exists on every configured registry — skipping build."
+              echo "Image exists on every configured registry, skipping build."
               SKIP="true"
             else
-              echo "Missing on:${MISSING} — will build."
+              echo "Missing on:${MISSING}, building."
               SKIP="false"
             fi
           fi
 
           echo "skip=${SKIP}" >> "${GITHUB_OUTPUT}"
 
-      # -----------------------------------------------------------------------
-      # Authenticate to GitHub Container Registry
-      # -----------------------------------------------------------------------
       - name: Log in to GHCR
         if: steps.check.outputs.skip != 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
@@ -178,15 +140,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # -----------------------------------------------------------------------
-      # Docker Hub mirror — active only once DOCKERHUB_USERNAME (variable) and
-      # DOCKERHUB_TOKEN (secret) are set together; otherwise skipped (GHCR-only).
-      # -----------------------------------------------------------------------
-      # Both halves are required, not just the variable: with the variable set and
-      # the secret missing or rotated, login-action fails, and because this step is
-      # not optional that failure takes the whole job down — including the GHCR push
-      # that was working. Gating on both makes a missing secret skip the mirror
-      # instead of breaking the build.
+      # A failed Docker Hub login would take the GHCR push down with it, so the
+      # mirror is skipped unless both the variable and the token are set.
       - name: Log in to Docker Hub
         if: steps.check.outputs.skip != 'true' && env.DOCKERHUB_READY == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
@@ -194,23 +149,14 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # -----------------------------------------------------------------------
-      # Set up QEMU for multi-arch emulation (required for arm64 builds)
-      # -----------------------------------------------------------------------
       - name: Set up QEMU
         if: steps.check.outputs.skip != 'true'
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
 
-      # -----------------------------------------------------------------------
-      # Set up Docker Buildx for multi-platform builds
-      # -----------------------------------------------------------------------
       - name: Set up Docker Buildx
         if: steps.check.outputs.skip != 'true'
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
-      # -----------------------------------------------------------------------
-      # Build the tag list: GHCR always, Docker Hub only when mirroring is on.
-      # -----------------------------------------------------------------------
       - name: Compose image tags
         id: tags
         if: steps.check.outputs.skip != 'true'
@@ -223,9 +169,8 @@ jobs:
             echo "${IMAGE_NAME}:latest"
             echo "${IMAGE_NAME}:${SYN_TAG}"
             echo "${IMAGE_NAME}:${SYN_TAG_BARE}"
-            # Gate on DOCKERHUB_READY, not the username alone: the login step now
-            # skips when the token is missing, and emitting Hub tags for a registry
-            # we never logged into would fail the push instead of skipping the mirror.
+            # Hub tags without a Hub login would fail the push, so they follow
+            # the same gate as the login step.
             if [ "${DOCKERHUB_READY}" = "true" ]; then
               DH="docker.io/${DOCKERHUB_USERNAME}/matrix"
               echo "${DH}:latest"
@@ -235,22 +180,12 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # -----------------------------------------------------------------------
-      # Smoke-test gate (amd64): build the image, boot it against a throwaway
-      # PostgreSQL, and require Synapse's /health to answer before anything is
-      # pushed. A green Docker build only proves the image *builds* — this
-      # proves the container actually *starts* (catches an s6 / config-gen /
-      # Synapse boot crash before :latest, including the hourly auto-builds).
-      # amd64-only on purpose: Synapse's first-run key generation + migrations
-      # are too slow under arm64 QEMU emulation for a CI gate.
-      #
-      # arm64 is not left unchecked, though. The Dockerfile runs
-      # `ldd /usr/local/bin/mas-cli && mas-cli --version` as a build step, which
-      # executes once per target platform during the multi-arch build below. A
-      # MAS binary that cannot resolve its shared libraries on arm64 therefore
-      # fails the push rather than reaching a user — which was the one arch-
-      # specific risk in pulling a binary from a foreign base image.
-      # -----------------------------------------------------------------------
+      # Smoke gate: boot the amd64 image against a throwaway PostgreSQL and require
+      # /health before anything is pushed, so a boot crash never reaches :latest.
+      # arm64 is too slow under QEMU for first-run key generation and migrations;
+      # for it, the Dockerfile's `ldd /usr/local/bin/mas-cli && mas-cli --version`
+      # step, which runs per platform in the multi-arch build, stops a MAS binary
+      # that cannot resolve its shared libraries.
       - name: Build amd64 image for smoke test
         if: steps.check.outputs.skip != 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -264,7 +199,7 @@ jobs:
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
           cache-from: type=gha
 
-      - name: Smoke test — amd64 must boot and serve /health
+      - name: 'Smoke test: amd64 must boot and serve /health'
         if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
@@ -285,18 +220,14 @@ jobs:
             docker rm -f mx-smoke mx-smoke-pg >/dev/null 2>&1 || true
             docker network rm mx-smoke-net >/dev/null 2>&1 || true
           }
-          # First boot generates config + signing keys and runs DB migrations —
-          # give it a generous budget.
+          # First boot generates config and signing keys and runs the migrations.
           for i in $(seq 1 180); do
             if curl -fsS -o /dev/null http://localhost:8008/health; then
               echo "✅ Synapse /health responded after ${i}s"
-              # Liveness alone is not enough: Synapse answers /health on its SQLite
-              # fallback too. Assert it actually loaded homeserver-overrides.yaml and
-              # is on PostgreSQL — this is exactly the regression that shipped in
-              # v2.1.0/2.1.1 (issue #3), where the override --config-path was dropped
-              # and Synapse silently ran on SQLite with every override dead.
+              # Synapse answers /health on its SQLite fallback too, so also check
+              # that it loaded homeserver-overrides.yaml and runs on PostgreSQL (#3).
               if docker exec mx-smoke sh -c '[ -f /data/homeserver.db ]'; then
-                echo "❌ /data/homeserver.db exists — Synapse fell back to SQLite (overrides not loaded)"
+                echo "❌ /data/homeserver.db exists: Synapse fell back to SQLite (overrides not loaded)"
                 docker logs mx-smoke || true
                 cleanup; exit 1
               fi
@@ -305,15 +236,14 @@ jobs:
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" \
                 2>/dev/null | tr -d '[:space:]') || TABLES=""
               if [ -z "${TABLES}" ] || [ "${TABLES}" = "0" ]; then
-                echo "❌ throwaway PostgreSQL has no Synapse tables — Synapse is not using PostgreSQL"
+                echo "❌ throwaway PostgreSQL has no Synapse tables, so Synapse is not using it"
                 docker logs mx-smoke || true
                 cleanup; exit 1
               fi
               echo "✅ Synapse is on PostgreSQL (${TABLES} public tables, no SQLite db)"
-              # The opt-in contract: with AUTH_ENABLED unset, the rendered Synapse
-              # config must look exactly as it did before MAS existed. Not
-              # "delegation disabled" — absent. This is the assertion that protects
-              # every existing install from an unattended image update.
+              # With AUTH_ENABLED unset the overrides carry no MAS section at all, not
+              # even a disabled one, so an image update changes nothing for existing
+              # installs.
               if docker exec mx-smoke grep -q "matrix_authentication_service" /data/homeserver-overrides.yaml; then
                 echo "❌ MAS config leaked into the overrides with AUTH_ENABLED unset"
                 docker exec mx-smoke cat /data/homeserver-overrides.yaml || true
@@ -334,29 +264,21 @@ jobs:
               exit 0
             fi
             if [ -z "$(docker ps -q --filter name=mx-smoke$)" ]; then
-              echo "❌ container exited early — logs:"; docker logs mx-smoke || true
+              echo "❌ container exited early, logs:"; docker logs mx-smoke || true
               cleanup; exit 1
             fi
             sleep 1
           done
-          echo "❌ /health did not respond within 180s — logs:"
+          echo "❌ /health did not respond within 180s, logs:"
           docker logs mx-smoke || true
           cleanup
           exit 1
 
-      # -----------------------------------------------------------------------
-      # Second smoke gate: delegated auth ON.
-      #
-      # The first gate proves the default (MAS off) path. This one proves the
-      # opt-in actually works, because a feature nobody can boot is worse than no
-      # feature. It asserts the three things Element checks before it will offer
-      # QR code login, so a regression here is caught in CI rather than by a user
-      # staring at a greyed-out button:
-      #   - Synapse serves /_matrix/client/v1/auth_metadata (only exists under MAS)
-      #   - that metadata advertises the device_code grant
-      #   - /_matrix/client/versions advertises org.matrix.msc4108
-      # -----------------------------------------------------------------------
-      - name: Smoke test — delegated auth (AUTH_ENABLED=true) must boot and offer QR login
+      # Second smoke gate: with delegated auth on, check the three things Element
+      # needs before it offers QR code login: /_matrix/client/v1/auth_metadata
+      # (served only under MAS), the device_code grant in that metadata, and
+      # org.matrix.msc4108 in /_matrix/client/versions.
+      - name: 'Smoke test: delegated auth (AUTH_ENABLED=true) must boot and offer QR login'
         if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
@@ -371,7 +293,7 @@ jobs:
             -e POSTGRES_DB=synapse \
             -e POSTGRES_INITDB_ARGS="--encoding=UTF-8 --lc-collate=C --lc-ctype=C" \
             postgres:16-alpine
-          # MAS needs its own, empty database — it cannot share Synapse's.
+          # MAS needs its own empty database; it cannot share Synapse's.
           for i in $(seq 1 60); do
             if docker exec -e PGPASSWORD=smoke mx-auth-pg pg_isready -h 127.0.0.1 -U synapse >/dev/null 2>&1; then break; fi
             sleep 1
@@ -392,11 +314,10 @@ jobs:
               break
             fi
             if [ -z "$(docker ps -q --filter name=mx-auth$)" ]; then
-              echo "❌ container exited early — logs:"; docker logs mx-auth || true; exit 1
+              echo "❌ container exited early, logs:"; docker logs mx-auth || true; exit 1
             fi
             sleep 1
           done
-          # MAS itself
           for i in $(seq 1 60); do
             if curl -fsS -o /dev/null http://localhost:18090/.well-known/openid-configuration; then
               echo "✅ MAS discovery served after ${i}s"; break
@@ -406,16 +327,15 @@ jobs:
           done
           curl -fsS http://localhost:18090/.well-known/openid-configuration \
             | grep -q 'urn:ietf:params:oauth:grant-type:device_code' \
-            || { echo "❌ MAS does not advertise the device_code grant — QR login cannot work"; exit 1; }
+            || { echo "❌ MAS does not advertise the device_code grant, QR login cannot work"; exit 1; }
           echo "✅ MAS advertises the device_code grant"
-          # Synapse-side discovery, the endpoint Element actually asks
+          # The Synapse side of discovery, which is what Element asks
           curl -fsS http://localhost:18008/_matrix/client/v1/auth_metadata | grep -q '"issuer"' \
-            || { echo "❌ /_matrix/client/v1/auth_metadata missing — auth is not delegated"; exit 1; }
+            || { echo "❌ /_matrix/client/v1/auth_metadata missing, auth is not delegated"; exit 1; }
           echo "✅ Synapse serves auth_metadata"
           curl -fsS http://localhost:18008/_matrix/client/versions | grep -q '"org.matrix.msc4108":true' \
-            || { echo "❌ org.matrix.msc4108 not advertised — Element would grey out the QR button"; exit 1; }
+            || { echo "❌ org.matrix.msc4108 not advertised, Element would grey out the QR button"; exit 1; }
           echo "✅ Synapse advertises org.matrix.msc4108"
-          # MAS really used its own database, and did not touch Synapse's
           MAS_TABLES=$(docker exec -e PGPASSWORD=smoke mx-auth-pg psql -h 127.0.0.1 -U synapse -d mas -tAc \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" | tr -d '[:space:]')
           [ -n "${MAS_TABLES}" ] && [ "${MAS_TABLES}" != "0" ] \
@@ -430,23 +350,15 @@ jobs:
           done
           AFTER=$(docker exec mx-auth sha256sum /data/mas/encryption.secret /data/mas/keys/rsa.key)
           [ "${BEFORE}" = "${AFTER}" ] \
-            || { echo "❌ MAS secrets were regenerated on restart — every encrypted value would be lost"; exit 1; }
+            || { echo "❌ MAS secrets were regenerated on restart, every encrypted value would be lost"; exit 1; }
           echo "✅ MAS secrets persisted across a restart"
 
-      # -----------------------------------------------------------------------
-      # Third smoke gate: the syn2mas migration.
-      #
-      # This is the only irreversible thing the image can do to a user's data, so
-      # it gets the most demanding test: create a real account under plain
-      # Synapse auth, prove it can log in, migrate it, and then prove the SAME
-      # PASSWORD still works against the auth service afterwards.
-      #
-      # That last assertion is the one that matters. A migration that "succeeds"
-      # while leaving password hashes unusable would look perfectly fine in the
-      # logs and lock every user out of their account — it is exactly what
-      # happens if the bcrypt scheme is missing from the MAS config.
-      # -----------------------------------------------------------------------
-      - name: Smoke test — syn2mas must migrate accounts and keep passwords working
+      # Third smoke gate: syn2mas, the one irreversible thing the image does to a
+      # user's data. An account created under plain Synapse auth is migrated and must
+      # then log in to MAS with the same password. A migration can report success and
+      # still leave the password hashes unusable, which is what a missing bcrypt
+      # scheme in the MAS config does.
+      - name: 'Smoke test: syn2mas must migrate accounts and keep passwords working'
         if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
@@ -511,18 +423,13 @@ jobs:
           for i in $(seq 1 240); do
             curl -fsS -o /dev/null http://localhost:18109/health && break
             if [ -z "$(docker ps -q --filter name=mx-mig$)" ]; then
-              echo "❌ container stopped during migration — logs:"; docker logs mx-mig || true; exit 1
+              echo "❌ container stopped during migration, logs:"; docker logs mx-mig || true; exit 1
             fi
             sleep 1
           done
-          # Wait on STATE, not on output. The marker file is written straight to
-          # the volume, while the banner still has to travel through the s6 logging
-          # chain. Polling the banner alone kept losing that race: a run gave up
-          # after 30s and the banner appeared 0.1s later, inside the very
-          # `docker logs` call that printed the failure. The migration had been
-          # done the whole time, only its announcement was still queued. So the
-          # marker is asserted first and the banner second, by which point the log
-          # has had its time.
+          # Wait for the marker file before the banner: the marker lands on the
+          # volume at once, while the banner still travels through the s6 logging
+          # chain and can arrive after a poll on the log has given up.
           for i in $(seq 1 90); do
             docker exec mx-mig test -f /data/mas/.migrated 2>/dev/null && break
             if [ -z "$(docker ps -q --filter name=mx-mig$)" ]; then
@@ -531,7 +438,7 @@ jobs:
             sleep 1
           done
           docker exec mx-mig test -f /data/mas/.migrated \
-            || { echo "❌ migration marker not written — it would run again on next start"; docker logs mx-mig | tail -40 || true; exit 1; }
+            || { echo "❌ migration marker not written, it would run again on next start"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migration marker written"
           found=0
           for i in $(seq 1 30); do
@@ -539,7 +446,7 @@ jobs:
             sleep 1
           done
           [ "$found" = "1" ] \
-            || { echo "❌ migration finished but never announced it — the operator gets no signal"; docker logs mx-mig | tail -40 || true; exit 1; }
+            || { echo "❌ migration finished but never announced it, so the operator gets no signal"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migration ran and reported success"
 
           echo "--- phase 3: the account must still work, with the same password ---"
@@ -557,7 +464,7 @@ jobs:
             sleep 2
           done
           [ -n "${TOKEN}" ] \
-            || { echo "❌ migrated account cannot log in — every user would be locked out"; docker logs mx-mig | tail -40 || true; exit 1; }
+            || { echo "❌ migrated account cannot log in, every user would be locked out"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migrated account logs in against the auth service with its original password"
           # A migration that accepts anything would pass the check above too
           CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:18190/_matrix/client/v3/login \
@@ -581,17 +488,11 @@ jobs:
           done
           COUNT=$(docker logs mx-mig 2>&1 | grep -c "ACCOUNTS MIGRATED" || true)
           [ "${COUNT}" = "1" ] \
-            || { echo "❌ migration banner seen ${COUNT} times — it is not idempotent"; docker logs mx-mig | tail -30 || true; exit 1; }
+            || { echo "❌ migration banner seen ${COUNT} times, it is not idempotent"; docker logs mx-mig | tail -30 || true; exit 1; }
           echo "✅ migration is idempotent across restarts"
 
-      # -----------------------------------------------------------------------
-      # Trivy CVE scan (non-blocking). Scans the locally-loaded amd64 smoke
-      # image built above for HIGH/CRITICAL vulnerabilities and publishes the
-      # findings to the repo's Security tab. Report-only: exit-code stays 0 so
-      # it NEVER fails the build — this is a wrapper that tracks upstream
-      # Synapse/Element/Debian, whose unfixed CVEs are not our regressions to
-      # gate on (ignore-unfixed drops those with no available fix).
-      # -----------------------------------------------------------------------
+      # Report-only: unfixed CVEs in upstream Synapse, Element and Debian are not
+      # regressions of this wrapper, so the scan never fails the build.
       - name: Scan image for CVEs (Trivy)
         if: steps.check.outputs.skip != 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -610,9 +511,6 @@ jobs:
           sarif_file: trivy-results.sarif
           category: trivy
 
-      # -----------------------------------------------------------------------
-      # Build and push the multi-arch image
-      # -----------------------------------------------------------------------
       - name: Build and push
         if: steps.check.outputs.skip != 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -620,16 +518,13 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          # Supply-chain attestations: attach an SBOM and a provenance record to
-          # the pushed image. Safe here because this is a single build-push (not a
-          # push-by-digest + imagetools manifest merge, which needs digest-mode
-          # handling for attestations).
+          # SBOM and provenance attestations work as is because this is a single
+          # build-push, not a push-by-digest with an imagetools manifest merge.
           provenance: true
           sbom: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
-          # Use GitHub Actions cache to speed up subsequent builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
@@ -640,15 +535,9 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}
 
-      # Mirror the GitHub README to the Docker Hub repo's Overview.
-      #
-      # This uses DOCKERHUB_TOKEN, the same access token the push above uses.
-      # It used to use a separate DOCKERHUB_PASSWORD, on the belief that a push
-      # token cannot edit a description. That was measured wrong on 2026-09-05:
-      # an access token with read, write and delete scope edits it fine, while
-      # the account password is refused outright with 401, because Docker Hub's
-      # legacy login endpoint rejects a password once 2FA is on. One secret,
-      # and the one that actually works.
+      # The description sync uses the push token too: an access token with read,
+      # write and delete scope may edit it, while Docker Hub refuses the account
+      # password once 2FA is on.
       - name: Docker Hub description sync ready?
         id: dhdesc
         if: ${{ vars.DOCKERHUB_USERNAME != '' && github.event_name != 'pull_request' }}
@@ -658,7 +547,7 @@ jobs:
           if [ -n "$PW" ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
           else
-            echo "DOCKERHUB_TOKEN not set — skipping Docker Hub description sync"
+            echo "DOCKERHUB_TOKEN not set, skipping Docker Hub description sync"
             echo "go=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Sync README to Docker Hub
@@ -675,14 +564,11 @@ jobs:
           readme-filepath: .github/DOCKERHUB.md
           enable-url-completion: true
 
-      # -----------------------------------------------------------------------
-      # Log a summary for easy visibility in the Actions UI
-      # -----------------------------------------------------------------------
       - name: Build summary
         if: always()
         run: |
           if [ "${{ steps.check.outputs.skip }}" = "true" ]; then
-            echo "### Skipped — image already up to date" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### Skipped: image already up to date" >> "${GITHUB_STEP_SUMMARY}"
             echo "Tag: \`${{ steps.synapse.outputs.tag }}\`" >> "${GITHUB_STEP_SUMMARY}"
           else
             echo "### Published" >> "${GITHUB_STEP_SUMMARY}"
