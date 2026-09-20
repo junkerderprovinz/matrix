@@ -12,9 +12,9 @@
 </p>
 
 <p align="center">
-A complete, plug-and-play Docker image for running your own <b>Matrix homeserver</b> on Unraid.
-No manual config file editing, no SSH access to the container required —
-just enter your domain and database credentials and the container handles the rest.
+A Docker image for running your own <b>Matrix homeserver</b> on Unraid.
+No manual config file editing and no SSH access to the container required.
+Enter your domain and database credentials and the container handles the rest.
 </p>
 
 ## What is this?
@@ -24,17 +24,17 @@ A **wrapper around the official Synapse image** from Element (`ghcr.io/element-h
 | Component | Purpose | Port |
 |---|---|---|
 | **Synapse** | Matrix homeserver (core component) | 8008 |
-| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
-| **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
+| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160-49200/udp |
+| **Element Web** | Matrix client (web UI) | 8080/element/ |
 | **Ketesa** | Admin interface (users, rooms, tokens), the maintained fork of Synapse-Admin | 8080/admin/ |
 | **Auth service (MAS)** | Optional, off by default. Enables QR code device linking | 8090 |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
-**PostgreSQL is external** — Synapse requires specific locale settings (below), and keeping the database external gives you full control over backups and performance.
+**PostgreSQL is external.** Synapse requires specific locale settings (below), and keeping the database external gives you full control over backups and performance.
 
-## Before you start — two things you must do
+## Before you start: two things you must do
 
-**1. Create the PostgreSQL database with the right locale** (UTF8 + `C` collation) — any other locale and Synapse refuses to start. In your Postgres container console (`psql -U postgres`); `admin`/`matrix` are the template defaults, use your own values consistently:
+**1. Create the PostgreSQL database with the right locale** (UTF8 + `C` collation). Any other locale and Synapse refuses to start. In your Postgres container console (`psql -U postgres`); `admin`/`matrix` are the template defaults, use your own values consistently:
 
 ```sql
 CREATE USER admin WITH PASSWORD 'yoursecretpassword';
@@ -60,8 +60,8 @@ proxy_set_header Connection "upgrade";
 
 ## Quick start on Unraid
 
-1. **Database first** — create it exactly as above.
-2. **Install the template** — Apps → Community Applications → search `Matrix All-in-One`. Or add the template URL manually under Docker → Add Container → Template URLs:
+1. **Database first.** Create it exactly as above.
+2. **Install the template.** Apps → Community Applications → search `Matrix All-in-One`. Or add the template URL manually under Docker → Add Container → Template URLs:
    ```
    https://raw.githubusercontent.com/junkerderprovinz/unraid-apps/main/matrix/matrix.xml
    ```
@@ -70,42 +70,42 @@ proxy_set_header Connection "upgrade";
    | Field | Example value | Note |
    |---|---|---|
    | `SERVER_NAME` | `matrix.yourdomain.tld` | **Can never be changed!** All user IDs become `@user:SERVER_NAME` |
-   | `POSTGRES_HOST` | `192.168.1.10` | Use the Unraid host IP — container names don't resolve on the default bridge network |
+   | `POSTGRES_HOST` | `192.168.1.10` | Use the Unraid host IP; container names don't resolve on the default bridge network |
    | `POSTGRES_USER` | `admin` | Must exist in PostgreSQL |
    | `POSTGRES_PASSWORD` | `yoursecretpassword` | Stored masked |
    | `POSTGRES_DB` | `matrix` | Must exist with the locale settings above |
 
    Optional extras: `ENABLE_REGISTRATION` (open signup + Element's **Create Account** button, default `false`), `TURN_DOMAIN`/`TURN_PORT` (route TURN through a dedicated subdomain/port), `ADMIN_USER`/`ADMIN_PASSWORD` (first server admin, below).
 
-4. **Apply and check the logs** — a loud `MATRIX IS READY` banner appears after 30–60 seconds once Synapse is serving.
+4. **Apply and check the logs.** A loud `MATRIX IS READY` banner appears after 30 to 60 seconds once Synapse is serving.
 5. **Point your reverse proxy** (`matrix.yourdomain.tld`, scheme `http`, forward to Unraid-IP:`8008`, WebSockets **enabled**, Let's Encrypt + Force SSL) and paste the Advanced block above. Path-scoped proxies (SWAG/Traefik) must forward the **whole `/_synapse` prefix**, not just `/_synapse/client`, or Synapse-Admin shows "Server communication error".
 
 ## Federation
 
-Enabled by default (template variable `Enable Federation`; set `false` for a private island server). Synapse serves both `/.well-known/matrix/*` endpoints itself — the proxy host above already covers them, nothing extra to configure. Verify:
+Enabled by default (template variable `Enable Federation`; set `false` for a private island server). Synapse serves both `/.well-known/matrix/*` endpoints itself; the proxy host above already covers them, so there is nothing extra to configure. Verify:
 
 ```bash
 curl -s https://matrix.yourdomain.tld/.well-known/matrix/server
 # expected: {"m.server": "matrix.yourdomain.tld:443"}
 ```
 
-Then run [federationtester.matrix.org](https://federationtester.matrix.org/) — all checks should be green.
+Then run [federationtester.matrix.org](https://federationtester.matrix.org/); all checks should be green.
 
 ## First admin user
 
-Set the optional template variables `ADMIN_USER` + `ADMIN_PASSWORD` and restart — the container registers the account as a **Synapse server admin** (or **promotes an existing account** — exactly what Synapse-Admin needs; an Element *room* admin is a different thing). **Clear both variables afterwards.** Then sign in at `http://UNRAID-IP:8080/element/` with homeserver `https://matrix.yourdomain.tld`, and manage users/rooms/registration tokens at `http://UNRAID-IP:8080/admin/`.
+Set the optional template variables `ADMIN_USER` and `ADMIN_PASSWORD` and restart. The container registers the account as a **Synapse server admin**, or **promotes an existing account**, which is what Synapse-Admin needs (an Element *room* admin is a different thing). **Clear both variables afterwards.** Then sign in at `http://UNRAID-IP:8080/element/` with homeserver `https://matrix.yourdomain.tld`, and manage users/rooms/registration tokens at `http://UNRAID-IP:8080/admin/`.
 
 ## Voice / video calls
 
-coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel — forward port `3478` (TCP+UDP) plus the relay range (`49160-49200/udp`) to your Unraid host either way. `TURN_DOMAIN`/`TURN_PORT` let you route TURN through a dedicated subdomain and/or remapped port. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
+coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel, so forward port `3478` (TCP and UDP) plus the relay range (`49160-49200/udp`) to your Unraid host either way. `TURN_DOMAIN`/`TURN_PORT` let you route TURN through a dedicated subdomain and/or remapped port. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
 
 ## Updates
 
-The image rebuilds automatically (hourly upstream check) for `linux/amd64` + `linux/arm64`. Every rebuild must pass a **boot smoke test** against a real PostgreSQL (no silent SQLite fallback) before `:latest` ships, gets a Trivy CVE scan, and carries SBOM + provenance attestations. On Unraid just click **Update** when it appears — `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
+The image rebuilds automatically (hourly upstream check) for `linux/amd64` and `linux/arm64`. Every rebuild must pass a **boot smoke test** against a real PostgreSQL (no silent SQLite fallback) before `:latest` ships, gets a Trivy CVE scan, and carries SBOM and provenance attestations. On Unraid click **Update** when it appears. `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
 
-## Full documentation & support
+## Full documentation and support
 
-The complete README — PostgreSQL details, NPM / Cloudflare Tunnel trade-offs, monitoring (Prometheus/Grafana), **bridges** (WhatsApp/Telegram/Signal via mautrix), registration tokens, and a full **troubleshooting** section (database locale, federation, Synapse-Admin 403/404, TURN) — lives on GitHub:
+The complete README lives on GitHub. It covers PostgreSQL details, NPM / Cloudflare Tunnel trade-offs, monitoring (Prometheus/Grafana), **bridges** (WhatsApp/Telegram/Signal via mautrix), registration tokens, and a full **troubleshooting** section (database locale, federation, Synapse-Admin 403/404, TURN):
 
 **[github.com/junkerderprovinz/matrix](https://github.com/junkerderprovinz/matrix)**
 
@@ -117,8 +117,8 @@ Found a bug? Have a feature request? → [GitHub issues](https://github.com/junk
 
 ## License
 
-AGPL-3.0-only — see [LICENSE](https://github.com/junkerderprovinz/matrix/blob/main/LICENSE). Not officially affiliated with Element HQ, the Matrix Foundation, or the Element project; Synapse, Element, coturn and Ketesa are their respective projects (under their own licenses), used unmodified.
+AGPL-3.0-only, see [LICENSE](https://github.com/junkerderprovinz/matrix/blob/main/LICENSE). Not officially affiliated with Element HQ, the Matrix Foundation, or the Element project; Synapse, Element, coturn and Ketesa are their respective projects (under their own licenses), used unmodified.
 
 ---
 
-<sub>Part of a family of self-hosted Unraid apps + plugins by <b>junkerderprovinz</b> — see them all at <a href="https://github.com/junkerderprovinz">github.com/junkerderprovinz</a>, or install from <a href="https://unraid.net/community/apps">Community Applications</a>.</sub>
+<sub>Part of a family of self-hosted Unraid apps and plugins by <b>junkerderprovinz</b>. See them all at <a href="https://github.com/junkerderprovinz">github.com/junkerderprovinz</a>, or install from <a href="https://unraid.net/community/apps">Community Applications</a>.</sub>

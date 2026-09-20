@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-A complete, plug-and-play Docker image for running your own <b>Matrix homeserver</b> on Unraid.
-No manual config file editing, no SSH access to the container required —
-just enter your domain and database credentials and the container handles the rest.
+A Docker image for running your own <b>Matrix homeserver</b> on Unraid.
+No manual config file editing and no SSH access to the container required.
+Enter your domain and database credentials and the container handles the rest.
 </p>
 
 <p align="center">
@@ -43,10 +43,9 @@ If it has earned a place on your server or computer, toss a coin to your knight:
 
 <br>
 
-## ⚠️ Before You Start — Two Things You Must Do
+## ⚠️ Before You Start: Two Things You Must Do
 
-The container itself is plug-and-play, but two things outside the container must be set up
-correctly or Synapse will not work:
+Two things outside the container must be set up correctly or Synapse will not work:
 
 **1. Create the PostgreSQL database with the right locale** (UTF8 + `C` collation).
 In your Postgres container console (`psql -U postgres`):
@@ -119,22 +118,22 @@ Matrix homeserver:
 | Component | Purpose | Port |
 |---|---|---|
 | **Synapse** | Matrix homeserver (core component) | 8008 |
-| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160–49200/udp |
-| **Element Web** | Modern Matrix client (web UI) | 8080/element/ |
+| **coturn** | TURN/STUN server for voice and video calls | 3478, 5349, 49160-49200/udp |
+| **Element Web** | Matrix client (web UI) | 8080/element/ |
 | **Ketesa** | Admin interface (users, rooms, tokens), the maintained fork of Synapse-Admin | 8080/admin/ |
 | **lighttpd** | Lightweight web server for Element Web + Ketesa | 8080 |
 | **Prometheus metrics** | Internal Synapse metrics endpoint | 9090 |
 
 **Why a wrapper instead of building from scratch?**
 The official Synapse image receives security patches immediately and is tested against every new
-Synapse release. We build *on top of it* rather than alongside it — meaning: always up to date,
+Synapse release. We build *on top of it* rather than alongside it, so the image stays up to date
 without maintaining our own Synapse build pipeline. The GitHub Actions workflow checks for new
-Synapse releases every hour and rebuilds the image automatically — and no build ships blind:
+Synapse releases every hour and rebuilds the image automatically. No build ships blind:
 before `:latest` is published, CI boots the freshly built image against a throwaway PostgreSQL
 and refuses to release it unless Synapse is demonstrably running on that database (a silent
 SQLite fallback fails the build). Details in [section 13](#13-updates).
 
-**PostgreSQL is external** — this image does not include its own database. Synapse requires PostgreSQL
+**PostgreSQL is external.** This image does not include its own database. Synapse requires PostgreSQL
 with specific locale settings (see section 3), and keeping it external gives you full control over
 backups, connections, and performance.
 
@@ -142,34 +141,34 @@ backups, connections, and performance.
 
 ## 2. Screenshots
 
-Element Web ships **inside this image** — no separate container needed. It is served at
+Element Web ships **inside this image**, so no separate container is needed. It is served at
 `http://UNRAID-IP:8080/element/` (signing in is covered in [section 9](#9-creating-the-first-admin-user)).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-1.jpg" alt="Element web client — first login on this Synapse server" width="90%">
-  <br><em>First login — Element home view served by your own Synapse homeserver.</em>
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-1.jpg" alt="Element web client, first login on this Synapse server" width="90%">
+  <br><em>First login: Element home view served by your own Synapse homeserver.</em>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-2.jpg" alt="Element — Create a Space dialog" width="90%">
-  <br><em>Public vs. private Spaces — group rooms and people by topic or team.</em>
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-2.jpg" alt="Element: Create a Space dialog" width="90%">
+  <br><em>Public vs. private Spaces: group rooms and people by topic or team.</em>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-3.jpg" alt="Element — Preferences with language and timezone settings" width="90%">
-  <br><em>Preferences — application language, room list, Spaces, time format, presence.</em>
+  <img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/screenshots/matrix-3.jpg" alt="Element: Preferences with language and timezone settings" width="90%">
+  <br><em>Preferences: application language, room list, Spaces, time format, presence.</em>
 </p>
 
 <br>
 
 ## 3. Quick Start on Unraid
 
-### Step 1 — Create the PostgreSQL database
+### Step 1: Create the PostgreSQL database
 
-Before installing the Matrix template, the database must be ready (UTF8 + `LC_COLLATE='C'`).
-See [section 4](#4-setting-up-postgresql) for the exact SQL — Synapse will not start without it.
+Before installing the Matrix template, the database must be ready (UTF8 with `LC_COLLATE='C'`).
+See [section 4](#4-setting-up-postgresql) for the exact SQL; Synapse will not start without it.
 
-### Step 2 — Install the template
+### Step 2: Install the template
 
 **Option A: Community Applications (recommended)**
 
@@ -187,7 +186,7 @@ See [section 4](#4-setting-up-postgresql) for the exact SQL — Synapse will not
    ```
 4. Click **Save**, then select **Matrix** from the template list
 
-### Step 3 — Fill in the required fields
+### Step 3: Fill in the required fields
 
 In the template form, you must configure the following fields:
 
@@ -207,24 +206,24 @@ Everything else has sensible defaults. The most useful optional variables:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ENABLE_REGISTRATION` | `false` | Open self-service signup + Element's **Create Account** button. Leave it off unless you enjoy spam signups — [section 10](#10-generating-registration-tokens) has the token-based alternative. |
-| `TURN_DOMAIN` / `TURN_PORT` | `SERVER_NAME` / `3478` | Route voice/video (TURN) through a dedicated subdomain and/or a remapped port — e.g. to take coturn around your reverse proxy. |
+| `ENABLE_REGISTRATION` | `false` | Open self-service signup and Element's **Create Account** button. Leave it off unless you enjoy spam signups; [section 10](#10-generating-registration-tokens) has the token-based alternative. |
+| `TURN_DOMAIN` / `TURN_PORT` | `SERVER_NAME` / `3478` | Route voice/video (TURN) through a dedicated subdomain and/or a remapped port, e.g. to take coturn around your reverse proxy. |
 | `TURN_TLS_ENABLE` | `auto` | TURN over TLS (`turns:`). `auto` = on when a certificate is mounted at `/data/certs`; `true`/`false` force it. See [Troubleshooting → TURN over TLS](#turn-over-tls-optional). |
-| `ADMIN_USER` / `ADMIN_PASSWORD` | — | Auto-create the first server admin (or promote an existing account) on the next start — see [section 9](#9-creating-the-first-admin-user). |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | none | Auto-create the first server admin (or promote an existing account) on the next start. See [section 9](#9-creating-the-first-admin-user). |
 | `ELEMENT_EXTRA_FEATURES` | `{}` | JSON object merged into Element Web's `features` block (labs/feature flags), e.g. `{"feature_html_topic": true}` for Markdown/HTML room topics (MSC3765). Invalid JSON is ignored with a warning in the log rather than breaking Element Web. |
 
-### Step 4 — Start the container and check the logs
+### Step 4: Start the container and check the logs
 
 1. Click **Apply** → the container starts
 2. In Unraid, open: **Docker → Matrix → Logs**
 3. You should see: `[init] INFO: Container initialization complete. Starting services ...`
-4. After approximately 30–60 seconds a loud `MATRIX IS READY` banner appears in the log —
+4. After approximately 30 to 60 seconds a loud `MATRIX IS READY` banner appears in the log.
    Synapse is now serving on port 8008
 
-### Step 5 — Configure NPM
+### Step 5: Configure NPM
 
 Follow [section 5](#5-npm-configuration-nginx-proxy-manager) to make Synapse accessible over HTTPS.
-**Don't forget the Advanced tab** — `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
+**Don't forget the Advanced tab.** `client_max_body_size 100M;` and `proxy_read_timeout 600s;`
 are required for media uploads and Sync to work.
 
 <br>
@@ -252,8 +251,8 @@ psql -U postgres
 
 ### Creating the user and database
 
-The SQL below uses `admin` as the database user and `matrix` as the database name —
-these are the **template defaults** documented here. You are free to choose different
+The SQL below uses `admin` as the database user and `matrix` as the database name.
+These are the **template defaults** documented here. You are free to choose different
 names; just make sure the `POSTGRES_USER` and `POSTGRES_DB` fields in the Unraid
 template match whatever values you actually create.
 
@@ -284,7 +283,7 @@ GRANT ALL PRIVILEGES ON DATABASE matrix TO admin;
 ### Why IP instead of container name?
 
 By default, Unraid runs all containers on the standard `bridge` network. On this network,
-**container name resolution does not work** — Docker only resolves container names to IPs
+**container name resolution does not work**. Docker only resolves container names to IPs
 when both containers are on the same *custom* Docker network.
 
 Using your Unraid host IP + the published PostgreSQL port works on any network type:
@@ -305,7 +304,7 @@ and set `POSTGRES_HOST` to the PostgreSQL container name.
 
 ## 5. NPM Configuration (Nginx Proxy Manager)
 
-Matrix clients require HTTPS. The Matrix container itself does not handle TLS —
+Matrix clients require HTTPS. The Matrix container itself does not handle TLS;
 that is delegated to a reverse proxy (or a Cloudflare Tunnel).
 
 ### 5.1 Access options: reverse proxy vs. Cloudflare Tunnel
@@ -323,8 +322,8 @@ well-known), so **no template change is needed** for either one.
 | Voice / video (TURN) | forward the TURN ports | forward the TURN ports (UDP, **not** tunnelable) |
 
 **Recommended:** a reverse proxy, which is what the rest of this section documents.
-A Cloudflare Tunnel is a fine alternative if you would rather not open any ports —
-just keep the 100 MB upload cap in mind and apply the same well-known delegation
+A Cloudflare Tunnel is a fine alternative if you would rather not open any ports.
+Keep the 100 MB upload cap in mind and apply the same well-known delegation
 (section 6) so federation works. If you ever put the domain on Cloudflare's regular
 **orange-cloud** proxy instead of a tunnel, switch the Matrix subdomain to **DNS only
 (grey cloud)**: the orange proxy throws bot challenges at non-browser clients and
@@ -356,7 +355,7 @@ For the reverse-proxy route you need **two proxy hosts** in NPM:
 
 **SSL tab:** Issue a Let's Encrypt certificate → enable Force SSL
 
-**Custom Nginx configuration** (Advanced tab) — paste as one block:
+**Custom Nginx configuration** (Advanced tab), paste as one block:
 
 ```nginx
 # Matrix media uploads can be large
@@ -411,19 +410,19 @@ For other servers to find yours, two well-known endpoints must be reachable at
 your domain. **Synapse now serves both itself** (`serve_server_wellknown` +
 `public_baseurl`, set automatically from your `SERVER_NAME`):
 
-- `/.well-known/matrix/server` — tells other Matrix servers to federate with you over port **443**
-- `/.well-known/matrix/client` — tells Matrix clients which homeserver to use
+- `/.well-known/matrix/server` tells other Matrix servers to federate with you over port **443**
+- `/.well-known/matrix/client` tells Matrix clients which homeserver to use
 
 ### Reverse-proxy setup (nothing extra to configure)
 
 Because Synapse serves these on the same listener as `/_matrix`, the
 `matrix.yourdomain.tld` proxy host from [section 5.2](#52-proxy-host-matrix-api-matrixyourdomaintld)
 already covers them. There are **no custom `/.well-known/...` locations to add and
-no JSON to write by hand** — just make sure that proxy host forwards `https://
+no JSON to write by hand**. Just make sure that proxy host forwards `https://
 matrix.yourdomain.tld/` to Synapse (it does by default).
 
 > Upgrading from an older build where you added manual `/.well-known/matrix/*`
-> proxy locations (or a `return 200 '{...}'` snippet)? You can remove them — the
+> proxy locations (or a `return 200 '{...}'` snippet)? You can remove them; the
 > container handles delegation now. Leaving them in place is harmless but
 > redundant.
 
@@ -448,7 +447,7 @@ Enter `matrix.yourdomain.tld`. All checks should be green and `FederationOK: tru
 **Common errors:**
 
 - `No .well-known found` → the `matrix.yourdomain.tld` proxy host is not forwarding `/` to
-  Synapse yet — Synapse serves the well-known endpoints itself, there are no custom locations to add
+  Synapse yet. Synapse serves the well-known endpoints itself, so there are no custom locations to add
 - `context deadline exceeded` on port 8448 → normal when well-known points to
   port 443; the tester just falls back to direct 8448. Once well-known is set up,
   this error becomes irrelevant
@@ -465,7 +464,7 @@ The container exposes Synapse's internal **Prometheus metrics** on port **9090**
 - **Path:** `/_synapse/metrics`
 - **Bind:** `0.0.0.0` (all interfaces)
 
-> Keep port 9090 on a private network — these metrics expose detailed internal Synapse state
+> Keep port 9090 on a private network. These metrics expose detailed internal Synapse state
 > and should not be publicly accessible.
 
 ### Prometheus scrape_config example
@@ -494,15 +493,15 @@ a full view of federation lag, event processing rates, cache hit ratios, and mor
 
 ## 8. Adding Bridges
 
-**Bridges** connect your Matrix homeserver to other messaging platforms — WhatsApp, Telegram,
+**Bridges** connect your Matrix homeserver to other messaging platforms: WhatsApp, Telegram,
 Signal, Discord, iMessage, and more. They appear as bots in your Matrix rooms and relay
 messages transparently between networks.
 
 ### Bridges are not bundled in this image
 
-This image deliberately does not include any bridges. Keeping the core image focused on
-Synapse, coturn, and the web UIs ensures a smaller attack surface and simpler upgrades.
-Each bridge has its own release cycle and dependencies that are better managed separately.
+This image does not include any bridges. Keeping the core image focused on Synapse, coturn
+and the web UIs keeps the attack surface smaller and upgrades simpler. Each bridge has its
+own release cycle and dependencies that are better managed separately.
 
 ### Recommended approach: mautrix bridges as separate containers
 
@@ -516,7 +515,7 @@ Google Chat, and more. Run each bridge as its own Docker container alongside thi
 2. Edit `config.yaml` to point at your Synapse homeserver URL and PostgreSQL database
 3. Run the bridge with `--generate-registration` to produce a `registration.yaml` file
 4. Copy `registration.yaml` into `/data/appservices/` inside the Matrix container
-5. Restart the Matrix container — Synapse will automatically load all `.yaml` files from
+5. Restart the Matrix container. Synapse then loads all `.yaml` files from
    `/data/appservices/` at startup
 
 The `/data/appservices/` directory on your Unraid host maps to
@@ -545,17 +544,17 @@ The template ships with two optional environment variables:
 
 1. Edit the Matrix container in Unraid
 2. Set `ADMIN_USER` and `ADMIN_PASSWORD`
-3. Apply — the container restarts and creates the admin user automatically
+3. Apply. The container restarts and creates the admin user automatically
 
 On the next boot, after Synapse is ready, the bootstrap service registers the
-user as an admin — or **promotes an existing account to server admin** if that
+user as an admin, or **promotes an existing account to server admin** if that
 username already exists. **Clear both variables afterwards** so it doesn't run
 again on every restart.
 
 The resulting Matrix ID is `@<ADMIN_USER>:<SERVER_NAME>`, e.g. `@admin:matrix.yourdomain.tld`.
 
 > **Already registered that account in Element?** Set `ADMIN_USER`/`ADMIN_PASSWORD` to its
-> name and restart — the bootstrap **promotes the existing account to server admin** (it only
+> name and restart. The bootstrap **promotes the existing account to server admin** (it only
 > sets the admin flag; it won't change the password). This is what **Synapse-Admin** needs: a
 > Synapse *server admin*, which is different from an Element *room* admin. Without it,
 > Synapse-Admin loads but shows **"Server communication error"** because the `/_synapse/admin`
@@ -597,7 +596,7 @@ Open `http://UNRAID-IP:8080/element/` in your browser.
 Registration tokens let you invite specific users to register without enabling open registration
 for everyone.
 
-> **Want fully open signup instead?** Set the `ENABLE_REGISTRATION` template variable to `true` —
+> **Want fully open signup instead?** Set the `ENABLE_REGISTRATION` template variable to `true`.
 > Element then shows its **Create Account** button and anyone can register. It defaults to `false`
 > and should stay off unless you have a CAPTCHA in front of it or run on a trusted network.
 
@@ -687,7 +686,7 @@ been started and anyone has signed in. **Back up first.**
    ```
 
 2. **A second reverse-proxy host**, for example `auth.yourdomain.tld`, forwarding to this container's
-   port **8090**, with a certificate. **HTTPS is mandatory** — MAS rejects plain-http redirect URLs, and
+   port **8090**, with a certificate. **HTTPS is mandatory.** MAS rejects plain-http redirect URLs, and
    Element's sign-in then fails with an unhelpful error. The container refuses to start if
    `AUTH_PUBLIC_BASE` is not `https://`.
 
@@ -749,7 +748,7 @@ something is missing, the container stops with a `[mas] ERROR:` line explaining 
 
 > **Set these in the Unraid template, not just on the running container.** Unraid rebuilds the container
 > from its template every time you hit Apply. If the template does not carry the `AUTH_*` variables, an
-> Apply silently turns delegated auth back off — while your accounts now live in the auth service, which
+> Apply silently turns delegated auth back off, while your accounts now live in the auth service, which
 > locks everyone out until you put them back.
 
 ### Migrating existing accounts
@@ -769,7 +768,7 @@ tar czf /mnt/user/backups/matrix-appdata-$(date +%F).tgz -C /mnt/user/appdata ma
 #### The built-in way (recommended)
 
 Set `Auth: migrate accounts` to `true` and start the container. The migration runs during
-initialisation, **before Synapse starts** — which is precisely the offline window upstream requires,
+initialisation, **before Synapse starts**, which is the offline window upstream requires,
 except you cannot forget it or have something restart the homeserver halfway through.
 
 It runs a pre-flight check, then a dry run, then the real migration, and refuses to continue at the
@@ -785,8 +784,8 @@ It will not run a second time, so leaving the field on `true` afterwards is harm
 #### By hand, if you prefer
 
 `check` and `--dry-run` are safe while Synapse is running. The real `migrate` is not: stop the
-container first, and note that this needs Synapse offline, which a running container cannot give you —
-which is why the built-in path exists.
+container first. It needs Synapse offline, which a running container cannot give you, and that is
+why the built-in path exists.
 
 ```bash
 docker exec -it Matrix mas-cli syn2mas check \
@@ -825,7 +824,7 @@ not be reached, and there is one overwhelmingly likely cause.
 
 **Synapse hands clients the rendezvous URL built from `public_baseurl`**, which this container derives
 from your `SERVER_NAME` as `https://SERVER_NAME/`. If clients actually reach your homeserver at some
-other address — a non-standard port, a different hostname, a tunnel — Element dutifully tries the
+other address (a non-standard port, a different hostname, a tunnel), Element dutifully tries the
 advertised URL, gets a connection error, and cancels. Everything else looks perfectly healthy, which is
 what makes it confusing.
 
@@ -838,7 +837,7 @@ forwards `/_synapse/client/` (not just `/_matrix`) to port 8008.
 ### Turning it back off
 
 Setting `Delegated Auth` back to `false` returns Synapse to handling its own logins. **If you already
-migrated with `syn2mas`, do not do this** — the accounts and passwords now live in the MAS database and
+migrated with `syn2mas`, do not do this.** The accounts and passwords now live in the MAS database and
 logins will simply fail. Restore your backup instead. The container warns about exactly this situation on
 start.
 
@@ -847,25 +846,25 @@ start.
 ## 12. S3 Media Storage
 
 **Off by default.** If you never touch the settings in this section, media is stored exactly as it always
-has been — under `/data/media_store` on the container's own volume. Nothing else here changes.
+has been, under `/data/media_store` on the container's own volume. Nothing else here changes.
 
 ### What it is
 
 Synapse can copy every uploaded avatar, image and file to an S3-compatible bucket in addition to its local
 store, via the upstream [`synapse-s3-storage-provider`](https://github.com/matrix-org/synapse-s3-storage-provider)
 module (bundled in the image, inert until you switch it on). The local `/data/media_store` stays a hot
-cache — Synapse checks it first — while the bucket holds a durable, off-box copy. This is meant for a
-self-hosted S3-compatible backend such as **SeaweedFS** or **Garage** — the same one you may already be
-running for OpenCloud — not bare AWS: there is no built-in default endpoint, so the container refuses to
+cache (Synapse checks it first) while the bucket holds a durable, off-box copy. This is meant for a
+self-hosted S3-compatible backend such as **SeaweedFS** or **Garage**, the same one you may already be
+running for OpenCloud, not bare AWS: there is no built-in default endpoint, so the container refuses to
 start with this feature on and no endpoint set, rather than silently talking to real AWS.
 
-For a handful of accounts this is not solving a real problem — media volume stays small regardless. It is
+For a handful of accounts this is not solving a real problem; media volume stays small regardless. It is
 here for when the same server also hosts other buckets, and you would rather grow media storage independent
 of the container's own disk than resize volumes later.
 
 ### Requirements
 
-1. **A bucket that already exists** on your S3-compatible backend — this feature does not create one.
+1. **A bucket that already exists** on your S3-compatible backend. This feature does not create one.
 2. **An access key with read/write access to that bucket.**
 3. **The endpoint URL**, e.g. `http://192.168.20.73:8333` for a local SeaweedFS S3 gateway.
 
@@ -874,17 +873,17 @@ of the container's own disk than resize volumes later.
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `S3_MEDIA_ENABLED` | No | `false` | Master switch. |
-| `S3_MEDIA_BUCKET` | **Yes**, when enabled | — | Bucket name. |
-| `S3_MEDIA_ENDPOINT` | **Yes**, when enabled | — | S3-compatible endpoint URL. |
-| `S3_MEDIA_ACCESS_KEY_ID` | **Yes**, when enabled | — | Access key. |
-| `S3_MEDIA_SECRET_ACCESS_KEY` | **Yes**, when enabled | — | Secret key. |
+| `S3_MEDIA_BUCKET` | **Yes**, when enabled | none | Bucket name. |
+| `S3_MEDIA_ENDPOINT` | **Yes**, when enabled | none | S3-compatible endpoint URL. |
+| `S3_MEDIA_ACCESS_KEY_ID` | **Yes**, when enabled | none | Access key. |
+| `S3_MEDIA_SECRET_ACCESS_KEY` | **Yes**, when enabled | none | Secret key. |
 | `S3_MEDIA_REGION` | No | `us-east-1` | Most self-hosted backends ignore this but boto3 requires some value. |
 | `S3_MEDIA_STORAGE_CLASS` | No | `STANDARD` | Passed straight through to the bucket. |
 
 Set these in the Unraid template (or `docker run -e`) and restart the container. The log line
 `[s3-media] INFO: S3 media storage = ENABLED` confirms it took effect.
 
-**Existing media is not migrated retroactively** — only new uploads from the moment this is switched on are
+**Existing media is not migrated retroactively.** Only new uploads from the moment this is switched on are
 copied to the bucket. To also move what is already on disk, run the upstream
 [`migrate_media_to_s3.py`](https://github.com/matrix-org/synapse-s3-storage-provider/blob/main/scripts/migrate_media_to_s3.py)
 script against the running container (it needs the same config block this feature renders into
@@ -906,13 +905,13 @@ The GitHub Actions workflow checks **every hour** for a new Synapse release.
 When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
 and pushed to `ghcr.io/junkerderprovinz/matrix`, mirrored to `junkerderprovinz/matrix` on Docker Hub.
 
-Nothing is published blind — every rebuild must pass a **boot smoke-test gate** first:
+Nothing is published blind: every rebuild must pass a **boot smoke-test gate** first:
 
 - CI boots the freshly built image against a throwaway PostgreSQL and waits for `/health`
-- It then asserts Synapse is **actually using PostgreSQL** — a silent SQLite fallback
+- It then asserts Synapse is **actually using PostgreSQL**. A silent SQLite fallback
   fails the build, so the issue #3 regression class can never ship again
 - Every build also gets a **Trivy CVE scan** (results land in the repo's Security tab),
-  and published images carry **SBOM + provenance attestations**
+  and published images carry **SBOM and provenance attestations**
 
 ### Updating the container on Unraid
 
@@ -922,7 +921,7 @@ Nothing is published blind — every rebuild must pass a **boot smoke-test gate*
 
 **Or use Unraid's bulk update:** Unraid → **Docker → Update All Containers**
 
-> Updates do not affect data in `/data` — your homeserver.yaml, media files, and signing keys
+> Updates do not affect data in `/data`: your homeserver.yaml, media files, and signing keys
 > are preserved. Synapse database migrations run automatically on startup.
 
 <br>
@@ -955,7 +954,7 @@ GRANT ALL PRIVILEGES ON DATABASE matrix TO admin;
 chown -R 99:100 /mnt/user/appdata/matrix/
 ```
 
-### Error: Container won't start — "SERVER_NAME not set"
+### Error: Container won't start ("SERVER_NAME not set")
 
 **Cause:** The `SERVER_NAME` environment variable is empty or missing in the template.
 
@@ -978,10 +977,10 @@ chown -R 99:100 /mnt/user/appdata/matrix/
 
 | Error | Cause | Fix |
 |---|---|---|
-| `No SRV or well-known` | Proxy host not forwarding `/` to Synapse | Follow [section 6](#6-enabling-federation) — Synapse serves well-known itself |
+| `No SRV or well-known` | Proxy host not forwarding `/` to Synapse | Follow [section 6](#6-enabling-federation); Synapse serves well-known itself |
 | `TLS certificate error` | Certificate invalid | Renew SSL certificate in NPM |
 | `Connection timeout` | Port 443/8448 blocked | Check router port forwarding |
-| `Invalid JSON` | Stale hand-written `/.well-known` proxy locations | Remove them — Synapse serves the JSON itself ([section 6](#6-enabling-federation)) |
+| `Invalid JSON` | Stale hand-written `/.well-known` proxy locations | Remove them; Synapse serves the JSON itself ([section 6](#6-enabling-federation)) |
 
 ### Synapse-Admin: "Server communication error"
 
@@ -992,7 +991,7 @@ request:
 
 | Status | Cause | Fix |
 |---|---|---|
-| **403** | The account is not a Synapse **server admin** (an Element *room* admin is a different thing). | Set `ADMIN_USER` / `ADMIN_PASSWORD` to that account and restart — the bootstrap promotes it (see [section 9](#9-creating-the-first-admin-user)). Or run `UPDATE users SET admin = 1 WHERE name = '@you:yourdomain';` in Postgres and restart. |
+| **403** | The account is not a Synapse **server admin** (an Element *room* admin is a different thing). | Set `ADMIN_USER` / `ADMIN_PASSWORD` to that account and restart; the bootstrap promotes it (see [section 9](#9-creating-the-first-admin-user)). Or run `UPDATE users SET admin = 1 WHERE name = '@you:yourdomain';` in Postgres and restart. |
 | **404** | Your reverse proxy forwards `/_matrix` and `/_synapse/client` but **not** `/_synapse/admin`. | Forward the **whole** `/_synapse` prefix, not just `/_synapse/client`. |
 
 The 404 trap hits path-scoped configs (SWAG, Traefik, hand-written nginx). A SWAG
@@ -1029,19 +1028,19 @@ tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 
 ### TURN/video calls not working
 
-1. Open port 3478 (TCP+UDP) **and the relay range 49160–49200/udp** in your router and forward
+1. Open port 3478 (TCP and UDP) **and the relay range 49160-49200/udp** in your router and forward
    them to the Unraid IP
-2. Verify that `turn_uris` is correctly set in `homeserver.yaml` — this happens automatically
+2. Verify that `turn_uris` is correctly set in `homeserver.yaml`; this happens automatically
    and follows `TURN_DOMAIN`/`TURN_PORT` if you set them (default: `SERVER_NAME:3478`)
 3. The TURN shared secret in `homeserver.yaml` and `turnserver.conf` must match
-   (both are populated from `/data/.turn_secret` — check container logs if there are issues)
-4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges — this may affect LAN testing
+   (both are populated from `/data/.turn_secret`; check container logs if there are issues)
+4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges, which may affect LAN testing
    but is not relevant for calls over the internet
 
 #### TURN over TLS (optional)
 
 TURN over TLS (the `turns:` scheme) is **enabled automatically** when you mount a certificate
-into the container. Put `fullchain.pem` + `privkey.pem` in a folder and map it to `/data/certs`.
+into the container. Put `fullchain.pem` and `privkey.pem` in a folder and map it to `/data/certs`.
 On the next start the container switches coturn's TLS listener on (port 5349) and adds matching
 `turns:` URIs to Synapse; with no certificate it stays on plain TURN (port 3478). Watch the
 container log for `TURN over TLS = ENABLED` / `= off`.
@@ -1063,9 +1062,9 @@ cp /mnt/user/appdata/NginxProxyManager/letsencrypt/live/npm-1/privkey.pem \
 ```
 
 Then set the **TURN-TLS Certs** path in the Unraid template to `/mnt/user/appdata/matrix/certs`
-(mapped to `/data/certs` inside the container), and forward TLS port **5349** (TCP+UDP) to the
+(mapped to `/data/certs` inside the container), and forward TLS port **5349** (TCP and UDP) to the
 Unraid host. If the cert files are missing, plain TURN on port 3478 still works, so TLS is
-entirely optional.
+optional.
 
 Advanced overrides (rarely needed):
 
@@ -1073,7 +1072,7 @@ Advanced overrides (rarely needed):
 |---|---|---|
 | `TURN_TLS_ENABLE` | `auto` | `auto` turns TLS on when a cert is present; `true` forces it on; `false` forces it off |
 | `TURN_TLS_PORT` | `5349` | Public port advertised for `turns:` (change if you remap it) |
-| `TURN_TLS_CERT` / `TURN_TLS_KEY` | `/data/certs/fullchain.pem` / `/data/certs/privkey.pem` | Certificate + key paths inside the container |
+| `TURN_TLS_CERT` / `TURN_TLS_KEY` | `/data/certs/fullchain.pem` / `/data/certs/privkey.pem` | Certificate and key paths inside the container |
 
 > [!IMPORTANT]
 > The certificate must be **valid for `TURN_DOMAIN`** (the host clients reach TURN at, default
@@ -1104,8 +1103,6 @@ GNU Affero General Public License v3.0 (AGPL-3.0); see [LICENSE](LICENSE)
 This project is not officially affiliated with Element HQ, the Matrix Foundation, or
 the Element project. Synapse, Element, and coturn are their respective
 trademarks/projects and are used here unmodified as base images / packages.
-
-*Built with care for the Unraid community.*
 
 <br>
 

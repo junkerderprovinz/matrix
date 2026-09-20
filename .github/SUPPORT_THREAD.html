@@ -30,7 +30,7 @@
 </head>
 <body>
 
-<h1>matrix – a complete Matrix homeserver in one Unraid container</h1>
+<h1>matrix: a complete Matrix homeserver in one Unraid container</h1>
 <p class="subtitle">Text like nobody's reading. Because nobody can.</p>
 
 <p align="center">
@@ -56,19 +56,19 @@ and your PostgreSQL connection; the container generates every config file itself
 container, no YAML editing, no hand-written TURN secrets.</p>
 <p>Because it builds <em>on top of</em> the official image rather than alongside it, Synapse security
 patches land here as soon as upstream ships them. A workflow checks hourly and rebuilds
-automatically — and no build ships blind: CI boots each freshly built image against a throwaway
+automatically. No build ships blind: CI boots each freshly built image against a throwaway
 PostgreSQL and refuses to publish it unless Synapse is demonstrably running on that database.</p>
 
 <h2>Highlights</h2>
 <ul>
-  <li><strong>Everything in one container</strong> — Synapse (<code>:8008</code>), Element Web (<code>:8080/element/</code>), Ketesa admin UI (<code>:8080/admin/</code>), coturn, Prometheus metrics</li>
-  <li><strong>Config is generated, not edited</strong> — set <code>SERVER_NAME</code> and your Postgres details and start; overrides are re-rendered on every boot, so changing a setting is a container restart</li>
-  <li><strong>Federation works out of the box</strong> — Synapse serves <code>/.well-known/matrix/server</code> and <code>/.well-known/matrix/client</code> itself, so no extra reverse-proxy rules are needed</li>
-  <li><strong>Voice and video that actually connects</strong> — coturn with a pinned relay port range, optional <strong>TURN over TLS</strong> that switches itself on when you mount a certificate</li>
-  <li><strong>QR code device linking</strong> (new, opt-in) — sign a new device in by scanning a code, via Matrix Authentication Service. Off by default and it stays off until you enable it</li>
-  <li><strong>Admin account bootstrap</strong> — set two variables and the first server admin is created, or an existing account promoted</li>
-  <li><strong>Startup that fails loudly</strong> — a broken configuration stops the container with the reason in the log rather than quietly running on wrong settings</li>
-  <li>Multi-arch — amd64 + arm64</li>
+  <li><strong>Everything in one container</strong>: Synapse (<code>:8008</code>), Element Web (<code>:8080/element/</code>), Ketesa admin UI (<code>:8080/admin/</code>), coturn, Prometheus metrics</li>
+  <li><strong>Config is generated, not edited</strong>: set <code>SERVER_NAME</code> and your Postgres details and start; overrides are re-rendered on every boot, so changing a setting is a container restart</li>
+  <li><strong>Federation works out of the box</strong>: Synapse serves <code>/.well-known/matrix/server</code> and <code>/.well-known/matrix/client</code> itself, so no extra reverse-proxy rules are needed</li>
+  <li><strong>Voice and video that actually connects</strong>: coturn with a pinned relay port range, optional <strong>TURN over TLS</strong> that switches itself on when you mount a certificate</li>
+  <li><strong>QR code device linking</strong> (new, opt-in): sign a new device in by scanning a code, via Matrix Authentication Service. Off by default and it stays off until you enable it</li>
+  <li><strong>Admin account bootstrap</strong>: set two variables and the first server admin is created, or an existing account promoted</li>
+  <li><strong>Startup that fails loudly</strong>: a broken configuration stops the container with the reason in the log rather than quietly running on wrong settings</li>
+  <li>Multi-arch: amd64 and arm64</li>
   <li>Image: <code>ghcr.io/junkerderprovinz/matrix:latest</code> (mirrored to <code>junkerderprovinz/matrix</code> on Docker Hub)</li>
 </ul>
 
@@ -86,7 +86,7 @@ PostgreSQL and refuses to publish it unless Synapse is demonstrably running on t
 <p>Please post:</p>
 <ul>
   <li>Unraid version (Settings &#8594; System Information)</li>
-  <li>Image tag (<code>latest</code> or a pinned <code>vX.Y.Z</code>) — and please confirm you actually pulled it; Unraid happily reuses a cached image on the same tag</li>
+  <li>Image tag (<code>latest</code> or a pinned <code>vX.Y.Z</code>), and please confirm you actually pulled it; Unraid happily reuses a cached image on the same tag</li>
   <li>Output of <code>docker logs --tail 200 Matrix</code></li>
   <li>Your <code>SERVER_NAME</code> (the domain is fine, no credentials) and whether the reverse proxy sits in front</li>
   <li>Whether you changed <code>ENABLE_FEDERATION</code>, <code>ENABLE_REGISTRATION</code>, the TURN variables, or anything in the Delegated Auth block</li>
@@ -106,7 +106,7 @@ under its own license. If this saved you an evening of YAML, you can
 
 <hr>
 
-<p class="footnote">Self-hosted, AGPL-3.0 licensed — you run it, you own your data and the responsibility. Not affiliated with Element or the Matrix.org Foundation.</p>
+<p class="footnote">Self-hosted, AGPL-3.0 licensed: you run it, you own your data and the responsibility. Not affiliated with Element or the Matrix.org Foundation.</p>
 
 </body>
 </html>
