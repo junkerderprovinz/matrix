@@ -10,7 +10,7 @@
 # build-arg in the workflow would override what it bumps. SYNAPSE_VERSION is the
 # exception: build.yml passes in the latest Synapse release, so its value below is
 # only the default for a local build. Each stage redeclares the args it uses.
-ARG SYNAPSE_VERSION=v1.159.0
+ARG SYNAPSE_VERSION=v1.161.0
 ARG ELEMENT_VERSION=v1.12.28
 ARG SYNAPSE_ADMIN_VERSION=v1.4.0
 ARG MAS_VERSION=1.25.0
