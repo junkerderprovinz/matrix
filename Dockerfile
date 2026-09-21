@@ -38,6 +38,10 @@ FROM ghcr.io/etkecc/ketesa:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
 ARG MAS_VERSION
 FROM ghcr.io/element-hq/matrix-authentication-service:${MAS_VERSION} AS mas
 
+# Debian's gosu is built with a Go whose os and os/exec flaws govulncheck finds
+# reachable in it; the upstream static build has none.
+FROM tianon/gosu:1.19 AS gosu
+
 ARG SYNAPSE_VERSION
 FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
 
@@ -70,7 +74,6 @@ RUN apt-get update \
         coturn \
         lighttpd \
         gettext-base \
-        gosu \
         openssl \
         ca-certificates \
         curl \
@@ -78,6 +81,8 @@ RUN apt-get update \
         xz-utils \
         jq \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=gosu /gosu /usr/local/bin/gosu
 
 # Optional S3 media storage (matrix-org/synapse-s3-storage-provider), unused unless
 # S3_MEDIA_ENABLED=true. The official image installs Synapse into the system
