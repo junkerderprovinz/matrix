@@ -40,7 +40,7 @@ FROM ghcr.io/element-hq/matrix-authentication-service:${MAS_VERSION} AS mas
 
 # Debian's gosu is built with a Go whose os and os/exec flaws govulncheck finds
 # reachable in it; the upstream static build has none.
-FROM tianon/gosu:1.19 AS gosu
+FROM tianon/gosu:1.19@sha256:5afac3970da83806ba3d7789a3a42da92fbe4f703d94984c601e183208d035d3 AS gosu
 
 ARG SYNAPSE_VERSION
 FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
