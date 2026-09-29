@@ -12,7 +12,7 @@
 # only the default for a local build. Each stage redeclares the args it uses.
 ARG SYNAPSE_VERSION=v1.162.0
 ARG ELEMENT_VERSION=v1.12.29
-ARG SYNAPSE_ADMIN_VERSION=v1.5.0
+ARG SYNAPSE_ADMIN_VERSION=v1.5.1
 ARG MAS_VERSION=1.26.0
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
