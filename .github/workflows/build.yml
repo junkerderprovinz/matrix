@@ -19,13 +19,23 @@ on:
           - 'false'
           - 'true'
 
+  # A rebuild moves :latest and the Synapse tag to a new digest, which every
+  # update checker reports as an update, so only image inputs trigger one.
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - 'unraid-template.xml'
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'rootfs/**'
+      - '.github/workflows/build.yml'
+
+# Queued pushes would otherwise race, and the last run to finish, not the
+# newest commit, would own :latest. Only a push cancels: a scheduled run skips
+# when the tag exists, so cancelling a push for one would drop that commit.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
   contents: read
