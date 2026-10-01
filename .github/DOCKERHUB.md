@@ -19,7 +19,7 @@ Enter your domain and database credentials and the container handles the rest.
 
 ## What is this?
 
-A **wrapper around the official Synapse image** from Element (`ghcr.io/element-hq/synapse`) that adds everything a working homeserver needs. The build pipeline checks **every hour** for new Synapse releases and rebuilds automatically, so the image is always current without a custom Synapse build.
+A **wrapper around the official Synapse image** from Element (`ghcr.io/element-hq/synapse`) that adds everything a working homeserver needs. Renovate picks up every new Synapse release and the next release of this image ships it, so the image stays current without a custom Synapse build.
 
 | Component | Purpose | Port |
 |---|---|---|
@@ -101,7 +101,7 @@ coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel,
 
 ## Updates
 
-The image rebuilds automatically (hourly upstream check) for `linux/amd64` and `linux/arm64`. Every rebuild must pass a **boot smoke test** against a real PostgreSQL (no silent SQLite fallback) before `:latest` ships, gets a Trivy CVE scan, and carries SBOM and provenance attestations. On Unraid click **Update** when it appears. `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
+Each release builds the image for `linux/amd64` and `linux/arm64`, tagged with its version and `latest`. Every build must pass a **boot smoke test** against a real PostgreSQL (no silent SQLite fallback) before `:latest` ships, gets a Trivy CVE scan, and carries SBOM and provenance attestations. On Unraid click **Update** when it appears. `/data` (homeserver.yaml, media, signing keys) is preserved and Synapse migrations run automatically on startup.
 
 ## Full documentation and support
 

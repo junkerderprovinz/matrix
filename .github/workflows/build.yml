@@ -1,29 +1,25 @@
-# Builds the multi-arch image for the latest Synapse release and pushes it to GHCR,
-# and to Docker Hub once DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are both set.
+# Builds the multi-arch image and pushes it to GHCR, and to Docker Hub once
+# DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are both set.
+#
+#   * push to main  -> edge, main, sha-<short>
+#   * tag v*.*.*    -> <version>, <major>.<minor>, <major>, and latest when that
+#                      tag is the newest release
+#
+# The image carries the repo's version, so every release is its own update.
+# Synapse and the other components are pinned in the Dockerfile, where Renovate
+# bumps them, and reach latest with the next release.
 
 name: Build & Push Docker Image
 
 on:
-  # Hourly, to pick up new Synapse releases
-  schedule:
-    - cron: '0 * * * *'
-
   workflow_dispatch:
-    inputs:
-      force_rebuild:
-        description: 'Force rebuild even if image already exists for this tag'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
 
-  # A rebuild moves :latest and the Synapse tag to a new digest, which every
-  # update checker reports as an update, so only image inputs trigger one.
+  # Path filters apply to branch pushes only; a release tag always builds.
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
     paths:
       - 'Dockerfile'
       - '.dockerignore'
@@ -31,11 +27,10 @@ on:
       - '.github/workflows/build.yml'
 
 # Queued pushes would otherwise race, and the last run to finish, not the
-# newest commit, would own :latest. Only a push cancels: a scheduled run skips
-# when the tag exists, so cancelling a push for one would drop that commit.
+# newest commit, would own the tag.
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -45,14 +40,11 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/junkerderprovinz/matrix
   # Evaluated here because a step-level `if:` cannot read `secrets`, and checking
   # the variable alone lets a missing token fail the whole job.
-  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
   DOCKERHUB_READY: ${{ vars.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
-  # Element Web, Ketesa and s6-overlay are pinned only in the Dockerfile ARGs,
-  # where Renovate updates them; a build-arg here would override those pins.
-  # Synapse is resolved to the latest release at build time, see below.
+  # Every component version is pinned in the Dockerfile ARGs, where Renovate
+  # bumps them; a build-arg here would override those pins.
 
   # Opt into Node.js 24 for all JavaScript actions to silence the
   # deprecation warning about Node.js 20.
@@ -67,83 +59,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Get latest Synapse release tag
-        id: synapse
-        env:
-          # Authenticated requests get 5000 per hour instead of 60, which hourly
-          # runs on shared runner IPs need.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=""
-          for attempt in 1 2 3 4 5; do
-            TAG=$(curl -fsSL --max-time 15 \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              "https://api.github.com/repos/element-hq/synapse/releases/latest" \
-              | jq -r '.tag_name' 2>/dev/null) || TAG=""
-            if [ -n "${TAG}" ] && [ "${TAG}" != "null" ]; then
-              break
-            fi
-            echo "::warning::Attempt ${attempt}: empty/null tag, retrying in $((attempt * 5))s"
-            sleep $((attempt * 5))
-          done
-
-          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
-            echo "::error::Could not determine latest Synapse release tag after 5 attempts."
-            exit 1
-          fi
-
-          TAG_BARE="${TAG#v}"
-
-          echo "tag=${TAG}"      >> "${GITHUB_OUTPUT}"
-          echo "tag_bare=${TAG_BARE}" >> "${GITHUB_OUTPUT}"
-          echo "Synapse latest release: ${TAG}"
-
-      - name: Check if image already exists
-        id: check
-        run: |
-          TAG="${{ steps.synapse.outputs.tag }}"
-          IMAGE="${{ env.IMAGE_NAME }}:${TAG}"
-
-          SKIP="false"
-          FORCE="${{ github.event.inputs.force_rebuild }}"
-          EVENT="${{ github.event_name }}"
-
-          if [ "${EVENT}" = "push" ]; then
-            echo "Push event: always rebuilding."
-            SKIP="false"
-          elif [ "${FORCE}" = "true" ]; then
-            echo "Force rebuild requested: skipping existence check."
-            SKIP="false"
-          else
-            # Build when any registry lacks the tag. A mirror switched on later would
-            # otherwise never get the current release, and the CA template pulls
-            # from Docker Hub.
-            MISSING=""
-            if ! docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
-              MISSING="${MISSING} ${IMAGE}"
-            fi
-            if [ "${DOCKERHUB_READY}" = "true" ]; then
-              DH_IMAGE="docker.io/${DOCKERHUB_USERNAME}/matrix:${TAG}"
-              if ! docker manifest inspect "${DH_IMAGE}" > /dev/null 2>&1; then
-                MISSING="${MISSING} ${DH_IMAGE}"
-              fi
-            fi
-
-            if [ -z "${MISSING}" ]; then
-              echo "Image exists on every configured registry, skipping build."
-              SKIP="true"
-            else
-              echo "Missing on:${MISSING}, building."
-              SKIP="false"
-            fi
-          fi
-
-          echo "skip=${SKIP}" >> "${GITHUB_OUTPUT}"
-
       - name: Log in to GHCR
-        if: steps.check.outputs.skip != 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -153,42 +69,55 @@ jobs:
       # A failed Docker Hub login would take the GHCR push down with it, so the
       # mirror is skipped unless both the variable and the token are set.
       - name: Log in to Docker Hub
-        if: steps.check.outputs.skip != 'true' && env.DOCKERHUB_READY == 'true'
+        if: env.DOCKERHUB_READY == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up QEMU
-        if: steps.check.outputs.skip != 'true'
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
       - name: Set up Docker Buildx
-        if: steps.check.outputs.skip != 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Compose image tags
-        id: tags
-        if: steps.check.outputs.skip != 'true'
-        env:
-          SYN_TAG: ${{ steps.synapse.outputs.tag }}
-          SYN_TAG_BARE: ${{ steps.synapse.outputs.tag_bare }}
+      # latest moves only for the newest release tag: an unreleased merge stays
+      # on edge, and re-cutting an older version cannot drag latest back to it.
+      # sort -V orders versions, so v3.10.0 beats v3.9.0.
+      - name: Is this the newest release tag?
+        id: newest
+        if: github.ref_type == 'tag'
         run: |
-          {
-            echo "tags<<EOF"
-            echo "${IMAGE_NAME}:latest"
-            echo "${IMAGE_NAME}:${SYN_TAG}"
-            echo "${IMAGE_NAME}:${SYN_TAG_BARE}"
-            # Hub tags without a Hub login would fail the push, so they follow
-            # the same gate as the login step.
-            if [ "${DOCKERHUB_READY}" = "true" ]; then
-              DH="docker.io/${DOCKERHUB_USERNAME}/matrix"
-              echo "${DH}:latest"
-              echo "${DH}:${SYN_TAG}"
-              echo "${DH}:${SYN_TAG_BARE}"
-            fi
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          newest=$(git ls-remote --tags --refs origin 'v*.*.*' | sed 's#.*refs/tags/##' | sort -V | tail -1)
+          echo "this tag: ${GITHUB_REF_NAME}, newest: ${newest}"
+          if [ "${newest}" = "${GITHUB_REF_NAME}" ]; then
+            echo "is_newest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_newest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: |
+            ghcr.io/junkerderprovinz/matrix
+            name=docker.io/${{ vars.DOCKERHUB_USERNAME }}/matrix,enable=${{ env.DOCKERHUB_READY == 'true' }}
+          # {{is_default_branch}} would put latest on every push to main, and
+          # metadata-action counts a tag cut from main as the default branch too.
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=edge,enable=${{ github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && steps.newest.outputs.is_newest == 'true' }}
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=Matrix All-in-One
+            org.opencontainers.image.description=Synapse + coturn + Element Web + Ketesa admin UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
 
       # Smoke gate: boot the amd64 image against a throwaway PostgreSQL and require
       # /health before anything is pushed, so a boot crash never reaches :latest.
@@ -197,7 +126,6 @@ jobs:
       # step, which runs per platform in the multi-arch build, stops a MAS binary
       # that cannot resolve its shared libraries.
       - name: Build amd64 image for smoke test
-        if: steps.check.outputs.skip != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
@@ -205,12 +133,9 @@ jobs:
           push: false
           load: true
           tags: matrix:smoke-amd64
-          build-args: |
-            SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
           cache-from: type=gha
 
       - name: 'Smoke test: amd64 must boot and serve /health'
-        if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
           docker network create mx-smoke-net
@@ -289,7 +214,6 @@ jobs:
       # (served only under MAS), the device_code grant in that metadata, and
       # org.matrix.msc4108 in /_matrix/client/versions.
       - name: 'Smoke test: delegated auth (AUTH_ENABLED=true) must boot and offer QR login'
-        if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
           cleanup() {
@@ -369,7 +293,6 @@ jobs:
       # still leave the password hashes unusable, which is what a missing bcrypt
       # scheme in the MAS config does.
       - name: 'Smoke test: syn2mas must migrate accounts and keep passwords working'
-        if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
           cleanup() {
@@ -504,7 +427,6 @@ jobs:
       # Report-only: unfixed CVEs in upstream Synapse, Element and Debian are not
       # regressions of this wrapper, so the scan never fails the build.
       - name: Scan image for CVEs (Trivy)
-        if: steps.check.outputs.skip != 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: matrix:smoke-amd64
@@ -515,14 +437,12 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy results to the Security tab
-        if: steps.check.outputs.skip != 'true' && github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy
 
       - name: Build and push
-        if: steps.check.outputs.skip != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
@@ -532,18 +452,10 @@ jobs:
           # build-push, not a push-by-digest with an imagetools manifest merge.
           provenance: true
           sbom: true
-          tags: ${{ steps.tags.outputs.tags }}
-          build-args: |
-            SYNAPSE_VERSION=${{ steps.synapse.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          labels: |
-            org.opencontainers.image.title=Matrix All-in-One
-            org.opencontainers.image.description=Synapse + coturn + Element Web + Ketesa admin UI
-            org.opencontainers.image.licenses=AGPL-3.0-only
-            org.opencontainers.image.source=https://github.com/junkerderprovinz/matrix
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.synapse.outputs.tag }}
 
       # The description sync uses the push token too: an access token with read,
       # write and delete scope may edit it, while Docker Hub refuses the account
@@ -575,16 +487,12 @@ jobs:
           enable-url-completion: true
 
       - name: Build summary
-        if: always()
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          if [ "${{ steps.check.outputs.skip }}" = "true" ]; then
-            echo "### Skipped: image already up to date" >> "${GITHUB_STEP_SUMMARY}"
-            echo "Tag: \`${{ steps.synapse.outputs.tag }}\`" >> "${GITHUB_STEP_SUMMARY}"
-          else
-            echo "### Published" >> "${GITHUB_STEP_SUMMARY}"
-            echo "| Tag | Image |" >> "${GITHUB_STEP_SUMMARY}"
-            echo "|-----|-------|" >> "${GITHUB_STEP_SUMMARY}"
-            echo "| latest | \`${{ env.IMAGE_NAME }}:latest\` |" >> "${GITHUB_STEP_SUMMARY}"
-            echo "| ${{ steps.synapse.outputs.tag }} | \`${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag }}\` |" >> "${GITHUB_STEP_SUMMARY}"
-            echo "| ${{ steps.synapse.outputs.tag_bare }} | \`${{ env.IMAGE_NAME }}:${{ steps.synapse.outputs.tag_bare }}\` |" >> "${GITHUB_STEP_SUMMARY}"
-          fi
+          {
+            echo "### Published"
+            echo '```'
+            echo "${TAGS}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

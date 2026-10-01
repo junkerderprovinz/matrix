@@ -7,9 +7,8 @@
 # License: AGPL-3.0-only
 
 # The component versions live only here: Renovate bumps these lines, and a
-# build-arg in the workflow would override what it bumps. SYNAPSE_VERSION is the
-# exception: build.yml passes in the latest Synapse release, so its value below is
-# only the default for a local build. Each stage redeclares the args it uses.
+# build-arg in the workflow would override what it bumps. Each stage redeclares
+# the args it uses.
 ARG SYNAPSE_VERSION=v1.162.0
 ARG ELEMENT_VERSION=v1.12.30
 ARG SYNAPSE_ADMIN_VERSION=v1.5.1
@@ -56,7 +55,7 @@ LABEL org.opencontainers.image.title="Matrix All-in-One" \
       org.opencontainers.image.description="Synapse + coturn + Element Web + Ketesa admin UI, plug-and-play for Unraid" \
       org.opencontainers.image.source="https://github.com/junkerderprovinz/matrix" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
-      org.opencontainers.image.version="${SYNAPSE_VERSION}" \
+      io.github.junkerderprovinz.matrix.synapse-version="${SYNAPSE_VERSION}" \
       org.opencontainers.image.vendor="junkerderprovinz" \
       maintainer="junkerderprovinz"
 

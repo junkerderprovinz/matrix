@@ -127,8 +127,9 @@ Matrix homeserver:
 **Why a wrapper instead of building from scratch?**
 The official Synapse image receives security patches immediately and is tested against every new
 Synapse release. We build *on top of it* rather than alongside it, so the image stays up to date
-without maintaining our own Synapse build pipeline. The GitHub Actions workflow checks for new
-Synapse releases every hour and rebuilds the image automatically. No build ships blind:
+without maintaining our own Synapse build pipeline. The GitHub Actions workflow builds the image
+for every release of this repo. Renovate picks up new Synapse, Element Web, Ketesa and MAS releases,
+and the next release of this repo ships them. No build ships blind:
 before `:latest` is published, CI boots the freshly built image against a throwaway PostgreSQL
 and refuses to release it unless Synapse is demonstrably running on that database (a silent
 SQLite fallback fails the build). Details in [section 13](#13-updates).
@@ -899,11 +900,16 @@ longer read from or written to.
 
 ## 13. Updates
 
-### Automatic image updates (GitHub Actions)
+### Image releases (GitHub Actions)
 
-The GitHub Actions workflow checks **every hour** for a new Synapse release.
-When one is found, the image is automatically rebuilt for `linux/amd64` and `linux/arm64`
-and pushed to `ghcr.io/junkerderprovinz/matrix`, mirrored to `junkerderprovinz/matrix` on Docker Hub.
+Each release `vX.Y.Z` of this repo builds the image for `linux/amd64` and `linux/arm64` and pushes
+it to `ghcr.io/junkerderprovinz/matrix`, mirrored to `junkerderprovinz/matrix` on Docker Hub, as
+`X.Y.Z`, `X.Y`, `X` and `latest`. Because the tag is this repo's version, every update Unraid offers
+has its own number. The release notes name the Synapse version inside, and so does the image label
+`io.github.junkerderprovinz.matrix.synapse-version`.
+
+Renovate picks up new Synapse, Element Web, Ketesa and MAS releases. A merged change is built as
+`edge` right away and reaches `latest` with the next release.
 
 Nothing is published blind: every rebuild must pass a **boot smoke-test gate** first:
 
