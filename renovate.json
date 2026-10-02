@@ -71,6 +71,16 @@
       ]
     },
     {
+      "description": "The upstream images are referenced as FROM image:${VERSION}, where Renovate can raise the tag in the ARG but has nowhere to write a digest",
+      "matchPackageNames": [
+        "ghcr.io/element-hq/synapse",
+        "vectorim/element-web",
+        "ghcr.io/etkecc/ketesa",
+        "ghcr.io/element-hq/matrix-authentication-service"
+      ],
+      "pinDigests": false
+    },
+    {
       "description": "s6-overlay — auto-merge minor/patch (build tool, low risk)",
       "matchPackageNames": [
         "just-containers/s6-overlay"
