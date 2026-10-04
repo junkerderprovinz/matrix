@@ -13,7 +13,7 @@
   <a href="https://github.com/junkerderprovinz/matrix/pkgs/container/matrix"><img src="https://img.shields.io/badge/Arch-amd64%20%7C%20arm64-success?style=for-the-badge&logo=linux&logoColor=white" alt="Arch" height="36"></a>&nbsp;
   <a href="https://github.com/element-hq/synapse"><img src="https://img.shields.io/badge/Synapse-homeserver-0dbd8b?style=for-the-badge&logo=matrix&logoColor=white" alt="Synapse" height="36"></a>&nbsp;
   <a href="https://element.io"><img src="https://img.shields.io/badge/Element-web%20client-0dbd8b?style=for-the-badge&logo=element&logoColor=white" alt="Element" height="36"></a>&nbsp;
-  <a href="https://unraid.net"><img src="https://img.shields.io/badge/Unraid-Template-f15a2c?style=for-the-badge&logo=unraid&logoColor=white" alt="Unraid" height="36"></a>&nbsp;
+  <a href="https://ca.unraid.net/apps/matrix-0m1y9gx19lbqgt"><img src="https://img.shields.io/badge/Unraid-Template-f15a2c?style=for-the-badge&logo=unraid&logoColor=white" alt="Unraid" height="36"></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge&logo=gnu&logoColor=white" alt="License: AGPL-3.0" height="36"></a>
 </p>
 
@@ -138,6 +138,8 @@ proxy_set_header Connection "upgrade";
 A path-based proxy has to forward all of `/_matrix` and `/_synapse`, or the admin page reports a server communication error. Then check federation with the [federation tester](https://federationtester.matrix.org/).
 
 **4. Sign in.** Element Web is on port `8080` under `/element/` and Ketesa under `/admin/`. For voice and video calls, forward the TURN ports (`3478` and the relay range `49160-49200/udp`) to your server, since a reverse proxy cannot carry them.
+
+The database, the proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, updates and troubleshooting are explained step by step in the [setup guide](docs/setup.md).
 
 <br>
 
