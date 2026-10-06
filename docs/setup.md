@@ -1,6 +1,6 @@
 # Setting up Matrix
 
-Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, updates and troubleshooting.
+Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Web settings, updates and troubleshooting.
 
 ## Setting Up PostgreSQL
 
@@ -668,6 +668,30 @@ script against the running container (it needs the same config block this featur
 Set `S3_MEDIA_ENABLED` back to `false` and restart. Synapse goes back to serving media purely from local
 disk; anything already copied to the bucket is left there untouched (nothing deletes it), it is just no
 longer read from or written to.
+
+<br>
+
+## Element Web Settings
+
+Element Web uses the browser's language and shows **Forgot password?** on the sign-in page. A password
+reset needs Synapse to be able to send email (the `email:` section in `homeserver.yaml`); without it,
+Synapse turns the request down with an error message.
+
+The container rewrites Element Web's `config.json` on every start, so changes go through two variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ELEMENT_EXTRA_FEATURES` | `{}` | JSON object merged into the `features` block (labs flags), e.g. `{"feature_html_topic": true}` |
+| `ELEMENT_EXTRA_CONFIG` | `{}` | JSON object merged into the top level of `config.json`. Objects in it are merged one level deep, so a single key of `setting_defaults` can change without repeating the rest |
+
+For example, to start new sessions in German and hide the reset link again:
+
+```json
+{"setting_defaults": {"language": "de_DE", "UIFeature.passwordReset": false}}
+```
+
+A value that is not a JSON object is ignored with a warning in the log, so a typo cannot stop Element Web
+from loading.
 
 <br>
 

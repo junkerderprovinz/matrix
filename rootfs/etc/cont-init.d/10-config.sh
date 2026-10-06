@@ -321,13 +321,55 @@ if not isinstance(obj, dict):
     ELEMENT_EXTRA_FEATURES='{}'
 fi
 
+# ELEMENT_EXTRA_CONFIG is an optional JSON object for anything else in
+# config.json, e.g. '{"setting_defaults": {"language": "de_DE"}}'. It is checked
+# the same way.
+if [ -z "${ELEMENT_EXTRA_CONFIG}" ]; then
+    ELEMENT_EXTRA_CONFIG='{}'
+fi
+if ! printf '%s' "${ELEMENT_EXTRA_CONFIG}" | python3 -c "
+import json, sys
+obj = json.load(sys.stdin)
+if not isinstance(obj, dict):
+    sys.exit(1)
+" >/dev/null 2>&1; then
+    log_warn "ELEMENT_EXTRA_CONFIG is not a valid JSON object, ignoring it: ${ELEMENT_EXTRA_CONFIG}"
+    ELEMENT_EXTRA_CONFIG='{}'
+fi
+
+# Merges a JSON object into the top level of config.json. Objects are merged one
+# level deep, so a single setting_defaults key can change without repeating the
+# whole block.
+merge_element_config() {
+    printf '%s' "$1" | python3 -c "
+import json, sys
+extra = json.load(sys.stdin)
+with open(sys.argv[1]) as fh:
+    cfg = json.load(fh)
+for key, value in extra.items():
+    if isinstance(value, dict) and isinstance(cfg.get(key), dict):
+        cfg[key].update(value)
+    else:
+        cfg[key] = value
+with open(sys.argv[1], 'w') as fh:
+    json.dump(cfg, fh, indent=2)
+    fh.write('\n')
+" "${ELEMENT_OUT}"
+}
+
 log_info "Rendering Element Web config.json ..."
 export SERVER_NAME ENABLE_REGISTRATION ELEMENT_EXTRA_FEATURES
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
 
+if [ "${ELEMENT_EXTRA_CONFIG}" != "{}" ]; then
+    log_info "Merging ELEMENT_EXTRA_CONFIG into Element Web config.json ..."
+    merge_element_config "${ELEMENT_EXTRA_CONFIG}" \
+        || log_warn "ELEMENT_EXTRA_CONFIG could not be merged; config.json is left as rendered."
+fi
+
 # envsubst is blind text substitution, so the rendered file is checked as well.
 if ! python3 -c "import json; json.load(open('${ELEMENT_OUT}'))" >/dev/null 2>&1; then
-    log_error "Rendered Element Web config.json is not valid JSON, check ELEMENT_EXTRA_FEATURES."
+    log_error "Rendered Element Web config.json is not valid JSON, check ELEMENT_EXTRA_FEATURES and ELEMENT_EXTRA_CONFIG."
     log_error "Element Web will fail to load until this is fixed and the container is restarted."
 fi
 
