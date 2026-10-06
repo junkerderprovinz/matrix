@@ -1,6 +1,6 @@
 # Setting up Matrix
 
-Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Web settings, updates and troubleshooting.
+Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Call, Element Web settings, updates and troubleshooting.
 
 ## Setting Up PostgreSQL
 
@@ -668,6 +668,41 @@ script against the running container (it needs the same config block this featur
 Set `S3_MEDIA_ENABLED` back to `false` and restart. Synapse goes back to serving media purely from local
 disk; anything already copied to the bucket is left there untouched (nothing deletes it), it is just no
 longer read from or written to.
+
+<br>
+
+## Element Call
+
+**Off by default.** Element Web and Element Desktop can make 1:1 calls over the bundled TURN server, but
+Element X places every call through Element Call and reports "call not supported" without it. Element Call
+needs a LiveKit media server, which is not part of this image. Run two more containers next to this one:
+
+| Container | Image | Purpose |
+|---|---|---|
+| LiveKit | `livekit/livekit-server` | The media server (SFU). Host networking is the easiest. Forward its UDP port range and its TCP fallback port, set `use_external_ip: true` (or `node_ip`) behind NAT, and put its WebSocket port 7880 behind your proxy, e.g. as `livekit.yourdomain.tld`. |
+| LiveKit JWT service | `ghcr.io/element-hq/lk-jwt-service` | Exchanges a Matrix OpenID token for a LiveKit token. Set `LIVEKIT_URL=wss://livekit.yourdomain.tld`, the LiveKit API key and secret, and `LIVEKIT_FULL_ACCESS_HOMESERVERS` to your `SERVER_NAME`. Put it behind your proxy, e.g. as `livekit-jwt.yourdomain.tld`. |
+
+Then set `ELEMENT_CALL_LIVEKIT_SERVICE_URL` to the public URL of the JWT service, for example
+`https://livekit-jwt.yourdomain.tld`, and restart. The log shows `ELEMENT_CALL = on`, and the container adds:
+
+- the LiveKit transport for MatrixRTC (MSC4143) to Synapse, and the `org.matrix.msc4143.rtc_foci` entry
+  to `/.well-known/matrix/client` for clients that look there
+- delayed events (MSC4140), `state_after` in sync (MSC4222) and the `rc_message` and
+  `rc_delayed_event_mgmt` rate limits from Element Call's self-hosting guide
+- `element_call.use_exclusively` in Element Web, so its 1:1 calls go through Element Call as well and
+  reach people on Element X
+
+While it is on, these keys replace `rc_message` and `extra_well_known_client_content` if you set them
+in `homeserver.yaml` yourself. To check the result:
+
+```bash
+curl https://matrix.yourdomain.tld/.well-known/matrix/client
+```
+
+The answer has to contain `org.matrix.msc4143.rtc_foci`. If calls connect on Wi-Fi but not over mobile
+data, look at the LiveKit UDP forwards and at any bot protection in front of the JWT service.
+
+To turn it off, clear the variable and restart.
 
 <br>
 

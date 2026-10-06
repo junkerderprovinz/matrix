@@ -83,6 +83,20 @@ case "${ENABLE_REGISTRATION:-false}" in
     true|True|TRUE|1|yes|Yes|YES) ENABLE_REGISTRATION="true" ;;
     *)                            ENABLE_REGISTRATION="false" ;;
 esac
+# Element X places every call through Element Call, which needs a LiveKit server
+# and the LiveKit JWT service next to this container. The URL goes into
+# double-quoted YAML, so a quote, backslash or space would break the overrides.
+ELEMENT_CALL_ON="false"
+if [ -n "${ELEMENT_CALL_LIVEKIT_SERVICE_URL}" ]; then
+    case "${ELEMENT_CALL_LIVEKIT_SERVICE_URL}" in
+        *[[:space:]\"\\]*)
+            log_warn "ELEMENT_CALL_LIVEKIT_SERVICE_URL contains spaces, quotes or backslashes, ignoring it." ;;
+        https://?*)
+            ELEMENT_CALL_ON="true" ;;
+        *)
+            log_warn "ELEMENT_CALL_LIVEKIT_SERVICE_URL must start with https://, ignoring it: ${ELEMENT_CALL_LIVEKIT_SERVICE_URL}" ;;
+    esac
+fi
 
 log_info "SERVER_NAME    = ${SERVER_NAME}"
 log_info "POSTGRES_HOST  = ${POSTGRES_HOST}:${POSTGRES_PORT}"
@@ -93,6 +107,11 @@ log_info "TZ             = ${TZ}"
 log_info "PUID/PGID      = ${PUID}/${PGID}"
 log_info "REGISTRATION   = ${ENABLE_REGISTRATION}"
 log_info "TURN_ENDPOINT  = ${TURN_DOMAIN}:${TURN_PORT}"
+if [ "${ELEMENT_CALL_ON}" = "true" ]; then
+    log_info "ELEMENT_CALL   = on (LiveKit JWT service ${ELEMENT_CALL_LIVEKIT_SERVICE_URL})"
+else
+    log_info "ELEMENT_CALL   = off (set ELEMENT_CALL_LIVEKIT_SERVICE_URL to enable calls in Element X)"
+fi
 
 if [ -f "/usr/share/zoneinfo/${TZ}" ]; then
     ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime
@@ -278,6 +297,42 @@ if [ "${TURN_TLS_ON}" = "true" ]; then
     rm -f "${TURNS_TMP}"
 fi
 
+# The settings Element Call's self-hosting guide asks for, appended for the same
+# reason as the turns: URIs. experimental_features may appear only once, so the
+# base template's empty one goes, and 20-mas.sh moves the flags between the
+# markers into its own block. livekit_service_url is deprecated in Synapse, but
+# current clients still read it, and the newer url form needs the JWT service
+# registered as an application service.
+if [ "${ELEMENT_CALL_ON}" = "true" ]; then
+    sed -i '/^experimental_features: {}$/d' "${OVERRIDES_OUT}"
+    cat >> "${OVERRIDES_OUT}" <<EOF
+
+matrix_rtc:
+  transports:
+    - type: livekit
+      livekit_service_url: "${ELEMENT_CALL_LIVEKIT_SERVICE_URL}"
+# For clients that look for the transports in .well-known instead.
+extra_well_known_client_content:
+  org.matrix.msc4143.rtc_foci:
+    - type: livekit
+      livekit_service_url: "${ELEMENT_CALL_LIVEKIT_SERVICE_URL}"
+# Delayed events (MSC4140) end a call membership when its client vanishes.
+max_event_delay_duration: 24h
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20
+# Call members exchange encryption keys in bursts.
+rc_message:
+  per_second: 0.5
+  burst_count: 30
+# element-call-flags-begin
+experimental_features:
+  msc4143_enabled: true
+  msc4222_enabled: true
+# element-call-flags-end
+EOF
+fi
+
 chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Holds POSTGRES_PASSWORD and TURN_SECRET.
 chmod 600 "${OVERRIDES_OUT}"
@@ -369,6 +424,14 @@ log_info "Rendering Element Web config.json ..."
 export SERVER_NAME ENABLE_REGISTRATION ELEMENT_EXTRA_FEATURES
 envsubst < "${ELEMENT_TMPL}" > "${ELEMENT_OUT}"
 
+# Element Web takes the call backend from the homeserver and uses its bundled
+# Element Call; use_exclusively puts 1:1 calls on it too, so they reach Element X.
+if [ "${ELEMENT_CALL_ON}" = "true" ]; then
+    merge_element_config '{"element_call": {"use_exclusively": true}}' \
+        || log_warn "Could not enable Element Call in Element Web's config.json."
+fi
+
+# Merged last, so it can override everything above.
 if [ "${ELEMENT_EXTRA_CONFIG}" != "{}" ]; then
     log_info "Merging ELEMENT_EXTRA_CONFIG into Element Web config.json ..."
     merge_element_config "${ELEMENT_EXTRA_CONFIG}" \

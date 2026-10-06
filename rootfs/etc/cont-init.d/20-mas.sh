@@ -169,11 +169,15 @@ fi
 
 # enable_registration and enable_registration_without_verification are a
 # ConfigError under delegated auth, and the base template's
-# `experimental_features: {}` would duplicate the key the MAS block adds.
+# `experimental_features: {}` would duplicate the key the MAS block adds. So
+# would the Element Call block from 10-config.sh; its flags are kept and added
+# after the MAS block, whose last key is experimental_features.
+ELEMENT_CALL_FLAGS="$(sed -n '/^# element-call-flags-begin$/,/^# element-call-flags-end$/{/^  /p}' "${OVERRIDES_OUT}")"
 sed -i \
     -e '/^enable_registration:/d' \
     -e '/^enable_registration_without_verification:/d' \
     -e '/^experimental_features: {}$/d' \
+    -e '/^# element-call-flags-begin$/,/^# element-call-flags-end$/d' \
     "${OVERRIDES_OUT}"
 
 log_info "Appending delegated-auth configuration to homeserver-overrides.yaml ..."
@@ -181,6 +185,9 @@ export AUTH_QR_LOGIN
 {
     printf '\n'
     envsubst < /defaults/mas-overrides.yaml.tmpl
+    if [ -n "${ELEMENT_CALL_FLAGS}" ]; then
+        printf '%s\n' "${ELEMENT_CALL_FLAGS}"
+    fi
 } >> "${OVERRIDES_OUT}"
 
 # A broken override file would otherwise surface later as a Synapse crash loop.
