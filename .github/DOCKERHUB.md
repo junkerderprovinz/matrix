@@ -97,7 +97,7 @@ Set the optional template variables `ADMIN_USER` and `ADMIN_PASSWORD` and restar
 
 ## Voice / video calls
 
-coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel, so forward port `3478` (TCP and UDP) plus the relay range (`49160-49200/udp`) to your Unraid host either way. `TURN_DOMAIN`/`TURN_PORT` let you route TURN through a dedicated subdomain and/or remapped port. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
+coturn runs over UDP and cannot pass through an HTTP proxy or Cloudflare Tunnel, so forward port `3478` (TCP and UDP) plus the relay range (`49160-49200/udp`) to your Unraid host either way, and set `TURN_EXTERNAL_IP` to your public IP when the server is behind NAT. `TURN_DOMAIN`/`TURN_PORT` let you route TURN through a dedicated subdomain and/or remapped port. TURN over TLS (port 5349) is optional: mount `fullchain.pem`/`privkey.pem` into `/data/certs/`.
 
 ## Updates
 

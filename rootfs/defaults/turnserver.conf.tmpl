@@ -12,11 +12,10 @@ max-port=49200
 
 listening-ip=0.0.0.0
 
-# The external IP/hostname clients use to reach this server.
-# In most Unraid setups this is the LAN IP of the host.
-# If behind NAT with port-forwarding, set this to your public IP.
-# Leave commented out to auto-detect (works in most home lab scenarios).
-# external-ip=YOUR_PUBLIC_IP
+# Behind NAT coturn would hand out its own private address as the relay address,
+# which nobody outside can reach, so 10-config.sh renders external-ip here from
+# TURN_EXTERNAL_IP. Unset, the line stays empty.
+${TURN_EXTERNAL_IP_CONF}
 
 # The realm is shown to clients during authentication. Conventionally set to
 # the Matrix server domain.

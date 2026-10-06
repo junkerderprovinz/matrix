@@ -68,6 +68,14 @@ else
     TURN_TLS_CONF="$(printf 'no-tls\nno-dtls')"
     log_info "TURN over TLS  = off (mount fullchain.pem + privkey.pem at /data/certs to enable)"
 fi
+# coturn's public/private form (203.0.113.5/172.17.0.2) passes through as is.
+if [ -n "${TURN_EXTERNAL_IP}" ]; then
+    TURN_EXTERNAL_IP_CONF="external-ip=${TURN_EXTERNAL_IP}"
+    log_info "TURN external IP = ${TURN_EXTERNAL_IP}"
+else
+    TURN_EXTERNAL_IP_CONF=""
+    log_info "TURN external IP = not set (set TURN_EXTERNAL_IP when the server is behind NAT)"
+fi
 # ENABLE_REGISTRATION drives both Synapse (enable_registration) and Element's
 # "Create Account" button (UIFeature.registration). Normalise to a literal
 # true/false so it is valid in both YAML and JSON.
@@ -298,7 +306,7 @@ TURN_TMPL="/defaults/turnserver.conf.tmpl"
 TURN_OUT="/data/turnserver.conf"
 
 log_info "Rendering turnserver.conf from template ..."
-export SERVER_NAME TURN_SECRET TURN_TLS_CONF
+export SERVER_NAME TURN_SECRET TURN_TLS_CONF TURN_EXTERNAL_IP_CONF
 envsubst < "${TURN_TMPL}" > "${TURN_OUT}"
 chmod 640 "${TURN_OUT}"
 

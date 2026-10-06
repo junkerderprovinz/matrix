@@ -833,11 +833,15 @@ tail -f /mnt/user/appdata/matrix/logs/homeserver.log
 
 1. Open port 3478 (TCP and UDP) **and the relay range 49160-49200/udp** in your router and forward
    them to the Unraid IP
-2. Verify that `turn_uris` is correctly set in `homeserver.yaml`; this happens automatically
+2. Set `TURN_EXTERNAL_IP` to your public IP if the server sits behind a router with NAT, which is
+   the usual home setup. Without it coturn gives callers its own private address to relay through,
+   and calls between networks fail even with the ports forwarded.
+   `grep external-ip /mnt/user/appdata/matrix/turnserver.conf` shows the value coturn uses
+3. Verify that `turn_uris` is correctly set in `homeserver.yaml`; this happens automatically
    and follows `TURN_DOMAIN`/`TURN_PORT` if you set them (default: `SERVER_NAME:3478`)
-3. The TURN shared secret in `homeserver.yaml` and `turnserver.conf` must match
+4. The TURN shared secret in `homeserver.yaml` and `turnserver.conf` must match
    (both are populated from `/data/.turn_secret`; check container logs if there are issues)
-4. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges, which may affect LAN testing
+5. `denied-peer-ip` in `turnserver.conf` blocks private IP ranges, which may affect LAN testing
    but is not relevant for calls over the internet
 
 #### TURN over TLS (optional)

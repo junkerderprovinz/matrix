@@ -137,7 +137,7 @@ proxy_set_header Connection "upgrade";
 
 A path-based proxy has to forward all of `/_matrix` and `/_synapse`, or the admin page reports a server communication error. Then check federation with the [federation tester](https://federationtester.matrix.org/).
 
-**4. Sign in.** Element Web is on port `8080` under `/element/` and Ketesa under `/admin/`. For voice and video calls, forward the TURN ports (`3478` and the relay range `49160-49200/udp`) to your server, since a reverse proxy cannot carry them.
+**4. Sign in.** Element Web is on port `8080` under `/element/` and Ketesa under `/admin/`. For voice and video calls, forward the TURN ports (`3478` and the relay range `49160-49200/udp`) to your server, since a reverse proxy cannot carry them, and set `TURN_EXTERNAL_IP` to your public IP when the server is behind NAT.
 
 The database, the proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, updates and troubleshooting are explained step by step in the [setup guide](docs/setup.md).
 
