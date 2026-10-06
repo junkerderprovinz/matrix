@@ -16,8 +16,10 @@ cd /data || { echo "[synapse] FATAL: cannot cd into /data" >&2; exit 1; }
 # --config-path is repeatable and the later file wins, which is how the overrides
 # take effect; Synapse ignores include directives in homeserver.yaml. Without the
 # second path it falls back to SQLite and every override is dead config (#3).
+# homeserver-custom.yaml comes last, so the user can change keys the overrides own.
+set -- --config-path /data/homeserver.yaml --config-path /data/homeserver-overrides.yaml
+if [ -f /data/homeserver-custom.yaml ]; then
+    set -- "$@" --config-path /data/homeserver-custom.yaml
+fi
 exec gosu "${PUID}:${PGID}" \
-    python -m synapse.app.homeserver \
-        --config-path /data/homeserver.yaml \
-        --config-path /data/homeserver-overrides.yaml \
-        --keys-directory /data
+    python -m synapse.app.homeserver "$@" --keys-directory /data

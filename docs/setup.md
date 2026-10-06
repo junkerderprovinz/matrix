@@ -1,6 +1,6 @@
 # Setting up Matrix
 
-Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Call, Element Web settings, updates and troubleshooting.
+Everything beyond the first start: the database, the reverse proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Call, Element Web and Synapse settings, updates and troubleshooting.
 
 ## Setting Up PostgreSQL
 
@@ -727,6 +727,31 @@ For example, to start new sessions in German and hide the reset link again:
 
 A value that is not a JSON object is ignored with a warning in the log, so a typo cannot stop Element Web
 from loading.
+
+<br>
+
+## Custom Synapse Settings
+
+`homeserver.yaml` is generated on the first start and left alone after that, but the container renders
+`homeserver-overrides.yaml` on every start and Synapse reads it second. Synapse merges its config files
+key by key at the top level, so a key the overrides set (`max_upload_size`, `presence`,
+`url_preview_enabled`, `experimental_features` and the rest) cannot be changed in `homeserver.yaml`.
+
+For those, create `/mnt/user/appdata/matrix/homeserver-custom.yaml`. Synapse reads it last, so its
+top-level keys win over both generated files. The container never writes to it and checks it on every
+start; the log shows `Custom config:` when it is loaded, and the container stops with an error if the
+file is not valid YAML. For example:
+
+```yaml
+max_upload_size: 500M
+presence:
+  enabled: false
+```
+
+A key in this file replaces the whole generated value, not single entries in it. Setting
+`experimental_features` here drops the flags the container sets for delegated auth and Element Call, so
+copy those over from `homeserver-overrides.yaml` if you use either. Restart the container after editing
+the file.
 
 <br>
 

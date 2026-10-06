@@ -337,6 +337,21 @@ chown "${PUID}:${PGID}" "${OVERRIDES_OUT}"
 # Holds POSTGRES_PASSWORD and TURN_SECRET.
 chmod 600 "${OVERRIDES_OUT}"
 
+# A broken homeserver-custom.yaml would otherwise show up as a Synapse crash loop.
+CUSTOM_CONFIG="/data/homeserver-custom.yaml"
+if [ -f "${CUSTOM_CONFIG}" ]; then
+    if ! python3 -c "
+import sys, yaml
+cfg = yaml.safe_load(open(sys.argv[1]))
+sys.exit(0 if cfg is None or isinstance(cfg, dict) else 1)
+" "${CUSTOM_CONFIG}" 2>/dev/null; then
+        log_error "${CUSTOM_CONFIG} is not a valid YAML mapping."
+        log_error "Fix or remove it and restart the container."
+        exit 1
+    fi
+    log_info "Custom config: ${CUSTOM_CONFIG} is loaded last, its keys win."
+fi
+
 # Installs from before the second --config-path carry an include_config_files
 # block in homeserver.yaml that Synapse never honoured, so they ran on SQLite with
 # every override ignored. The block is stripped so the file shows what Synapse
