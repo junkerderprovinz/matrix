@@ -57,6 +57,16 @@ If it has earned a place on your server or computer, toss a coin to your knight:
 
 <br>
 
+## ⚠️ Before you start
+
+> [!IMPORTANT]
+> **Two things outside the container have to be right, or Synapse will not work.**
+>
+> 1. **The PostgreSQL database needs UTF8 with `C` collation.** With any other locale Synapse refuses to start. The `CREATE DATABASE` command is in [step 1 of Getting started](#3-getting-started).
+> 2. **The reverse proxy needs the Matrix block in its custom Nginx configuration.** Without it media uploads fail and syncing times out. The block is in step 3 of the same section.
+
+<br>
+
 ## Table of Contents
 
 1. [What it looks like](#1-what-it-looks-like)
