@@ -373,9 +373,11 @@ jobs:
           docker exec mx-mig test -f /data/mas/.migrated \
             || { echo "❌ migration marker not written, it would run again on next start"; docker logs mx-mig | tail -40 || true; exit 1; }
           echo "✅ migration marker written"
+          # The log is read into a string first: grep -q quits on the first match,
+          # docker logs then dies of SIGPIPE, and pipefail turns the hit into a miss.
           found=0
           for i in $(seq 1 30); do
-            if docker logs mx-mig 2>&1 | grep -q "ACCOUNTS MIGRATED"; then found=1; break; fi
+            if grep -q "ACCOUNTS MIGRATED" <<<"$(docker logs mx-mig 2>&1)"; then found=1; break; fi
             sleep 1
           done
           [ "$found" = "1" ] \
@@ -416,7 +418,7 @@ jobs:
           # Give the second boot's output time to reach the log before counting,
           # for the same buffering reason as above.
           for i in $(seq 1 20); do
-            docker logs mx-mig 2>&1 | grep -q "already migrated" && break
+            grep -q "already migrated" <<<"$(docker logs mx-mig 2>&1)" && break
             sleep 1
           done
           COUNT=$(docker logs mx-mig 2>&1 | grep -c "ACCOUNTS MIGRATED" || true)
