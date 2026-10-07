@@ -60,10 +60,9 @@ If it has earned a place on your server or computer, toss a coin to your knight:
 ## ⚠️ Before you start
 
 > [!IMPORTANT]
-> **Two things outside the container have to be right, or Synapse will not work.**
+> **Set up the database and the proxy before the first start.** Synapse depends on two things outside the container. The PostgreSQL database has to use UTF8 with `C` collation, or Synapse refuses to start, and a database created with the defaults has to be created again. The reverse proxy needs a few extra Nginx settings, or media uploads fail and syncing times out.
 >
-> 1. **The PostgreSQL database needs UTF8 with `C` collation.** With any other locale Synapse refuses to start. **[Setting up PostgreSQL →](docs/setup.md#setting-up-postgresql)**
-> 2. **The reverse proxy needs the Matrix block in its custom Nginx configuration.** Without it media uploads fail and syncing times out. **[NPM configuration →](docs/setup.md#npm-configuration-nginx-proxy-manager)**
+> **[Setting up PostgreSQL →](docs/setup.md#setting-up-postgresql)** &nbsp;&nbsp; **[Reverse proxy settings →](docs/setup.md#npm-configuration-nginx-proxy-manager)**
 
 <br>
 
