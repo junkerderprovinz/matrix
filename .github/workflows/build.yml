@@ -259,15 +259,16 @@ jobs:
             [ "$i" = "60" ] && { echo "❌ MAS never served its discovery document"; docker logs mx-auth || true; exit 1; }
             sleep 1
           done
-          curl -fsS http://localhost:18090/.well-known/openid-configuration \
-            | grep -q 'urn:ietf:params:oauth:grant-type:device_code' \
+          # Matched on a captured copy: a pipe into `grep -q` dies of SIGPIPE under
+          # pipefail when grep exits before curl has finished writing.
+          grep -q 'urn:ietf:params:oauth:grant-type:device_code' <<< "$(curl -fsS http://localhost:18090/.well-known/openid-configuration)" \
             || { echo "❌ MAS does not advertise the device_code grant, QR login cannot work"; exit 1; }
           echo "✅ MAS advertises the device_code grant"
           # The Synapse side of discovery, which is what Element asks
-          curl -fsS http://localhost:18008/_matrix/client/v1/auth_metadata | grep -q '"issuer"' \
+          grep -q '"issuer"' <<< "$(curl -fsS http://localhost:18008/_matrix/client/v1/auth_metadata)" \
             || { echo "❌ /_matrix/client/v1/auth_metadata missing, auth is not delegated"; exit 1; }
           echo "✅ Synapse serves auth_metadata"
-          curl -fsS http://localhost:18008/_matrix/client/versions | grep -q '"org.matrix.msc4108":true' \
+          grep -q '"org.matrix.msc4108":true' <<< "$(curl -fsS http://localhost:18008/_matrix/client/versions)" \
             || { echo "❌ org.matrix.msc4108 not advertised, Element would grey out the QR button"; exit 1; }
           echo "✅ Synapse advertises org.matrix.msc4108"
           MAS_TABLES=$(docker exec -e PGPASSWORD=smoke mx-auth-pg psql -h 127.0.0.1 -U synapse -d mas -tAc \
