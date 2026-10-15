@@ -152,7 +152,7 @@ The database, the proxy, federation, monitoring, bridges, admin users, registrat
 
 ### Other Docker hosts
 
-[compose.yaml](compose.yaml) runs Matrix on any Linux server with Docker. Put it in a folder of its own, point the folders under `volumes` at your files, fill in every value marked `required` and start it with `docker compose up -d`. The folders are created next to the file. Matrix also needs a PostgreSQL database, so fill in the `POSTGRES_*` values as in step 1 above.
+[compose.yaml](compose.yaml) runs Matrix on any Linux server with Docker. Put it in a folder of its own, fill in every value marked `required` and start it with `docker compose up -d`. The folders are created next to the file.
 
 - **Synology:** in Container Manager, create a project from the file (DSM 7.2 or newer).
 - **Proxmox:** run it in a VM or an LXC container that has Docker.
