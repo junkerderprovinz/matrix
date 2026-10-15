@@ -150,6 +150,14 @@ A path-based proxy has to forward all of `/_matrix` and `/_synapse`, or the admi
 
 The database, the proxy, federation, monitoring, bridges, admin users, registration tokens, delegated auth, S3 media, Element Call for Element X, updates and troubleshooting are explained step by step in the [setup guide](docs/setup.md).
 
+### Other Docker hosts
+
+[compose.yaml](compose.yaml) runs Matrix on any Linux server with Docker. Put it in a folder of its own, point the folders under `volumes` at your files, fill in every value marked `required` and start it with `docker compose up -d`. The folders are created next to the file. Matrix also needs a PostgreSQL database, so fill in the `POSTGRES_*` values as in step 1 above.
+
+- **Synology:** in Container Manager, create a project from the file (DSM 7.2 or newer).
+- **Proxmox:** run it in a VM or an LXC container that has Docker.
+- **MOS:** install Matrix from the [MOS Hub](https://mos-official.net/apps.html?search=Matrix).
+
 <br>
 
 ## 4. How AI is used here

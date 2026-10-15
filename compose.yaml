@@ -1,0 +1,45 @@
+# Built from the Unraid template in junkerderprovinz/unraid-apps by
+# .github/gen-compose.py. Change the template there, not this file.
+#
+# Folders are created next to this file on the first start. Point the ones
+# that hold your own files (downloads, storage and the like) at real folders
+# first, and fill in every value marked "required".
+
+services:
+  matrix:
+    image: junkerderprovinz/matrix:latest
+    container_name: matrix
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+      - "8080:8080"
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+      - "49160-49200:49160-49200/udp"
+      - "9090:9090"
+      - "8090:8090"
+    volumes:
+      - "./appdata:/data"
+    environment:
+      SERVER_NAME: matrix.yourdomain.tld
+      REPORT_STATS: "no"
+      ENABLE_FEDERATION: "true"
+      ENABLE_REGISTRATION: "false"
+      AUTH_ENABLED: "false"
+      AUTH_ALLOW_REGISTRATION: "false"
+      AUTH_MIGRATE: "false"
+      AUTH_QR_LOGIN: "true"
+      S3_MEDIA_ENABLED: "false"
+      TURN_PORT: "3478"
+      POSTGRES_HOST: "192.168.1.10"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: matrix
+      POSTGRES_PASSWORD: ""  # required
+      POSTGRES_DB: matrix
+      ELEMENT_EXTRA_FEATURES: "{}"
+      ELEMENT_EXTRA_CONFIG: "{}"
+      TZ: Europe/Vienna
+      PUID: "1000"
+      PGID: "1000"
