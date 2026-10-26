@@ -9,7 +9,7 @@
 # The component versions live only here: Renovate bumps these lines, and a
 # build-arg in the workflow would override what it bumps. Each stage redeclares
 # the args it uses.
-ARG SYNAPSE_VERSION=v1.163.1
+ARG SYNAPSE_VERSION=v1.163.2
 ARG ELEMENT_VERSION=v1.12.32
 ARG SYNAPSE_ADMIN_VERSION=v1.5.2
 ARG MAS_VERSION=1.27.1
