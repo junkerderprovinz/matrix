@@ -155,6 +155,12 @@
       "labels": [
         "python-packages"
       ]
+    },
+    {
+      "description": "The compose file is for people to copy, so it follows the app's own latest tag instead of a digest that goes stale every build",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["junkerderprovinz/matrix"],
+      "enabled": false
     }
   ],
   "customManagers": [

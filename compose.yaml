@@ -7,7 +7,7 @@
 
 services:
   matrix:
-    image: junkerderprovinz/matrix:latest@sha256:a22a2b51abf9706dd6ffe07e55cc6633145c3646ee47d9a4b253e471f519f1eb
+    image: junkerderprovinz/matrix:latest
     container_name: matrix
     restart: unless-stopped
     ports:
