@@ -89,6 +89,16 @@ COPY --from=gosu /gosu /usr/local/bin/gosu
 # with no PYTHONPATH wiring. It mainly adds boto3 and its dependencies.
 RUN pip install --no-cache-dir --break-system-packages synapse-s3-storage-provider==1.6.1
 
+# Synapse 1.164 ships authlib 1.6.12, which has open advisories fixed in 1.9.
+# The pin can go once a Synapse release carries 1.9.1 or later. authlib 1.9 adds
+# joserfc as a dependency; --no-deps keeps pip away from the rest of Synapse's.
+# renovate: datasource=pypi depName=authlib
+ARG AUTHLIB_VERSION=1.9.1
+# renovate: datasource=pypi depName=joserfc
+ARG JOSERFC_VERSION=1.7.7
+RUN pip install --no-cache-dir --break-system-packages --no-deps \
+        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}"
+
 # s6-overlay names its release files after the machine architecture, not TARGETARCH.
 RUN case "${TARGETARCH}" in \
         amd64)  S6_ARCH="x86_64"   ;; \
