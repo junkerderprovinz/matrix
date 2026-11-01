@@ -608,6 +608,35 @@ Check what the browser tried in the developer console. A failed request to
 Make sure `https://SERVER_NAME/` really is where clients reach Synapse, and that your reverse proxy
 forwards `/_synapse/client/` (not just `/_matrix`) to port 8008.
 
+### Element X says it can't reach the homeserver
+
+Element X keeps showing "We couldn't reach this homeserver" or a similar message, while Element Web
+works fine. The Synapse log fills up with pairs like these, several per second:
+
+```
+GET /_matrix/client/versions                                   401 "Token is not active"
+GET /_matrix/client/unstable/org.matrix.msc2965/auth_metadata  404 M_UNRECOGNIZED
+```
+
+The app's access token has expired, and the app sends it along with `/versions` anyway. Synapse
+rejects the request, so the app falls back to the old unstable path for the auth metadata. Synapse
+1.164 removed that path, which leaves the app unable to refresh its token
+([matrix-rust-sdk#7387](https://github.com/matrix-org/matrix-rust-sdk/issues/7387)).
+
+Until the app is fixed, send the old path to the new one. In NPM, add this to the **Advanced** tab of
+your `matrix.yourdomain.tld` host, next to the login rule from step 4:
+
+```nginx
+location = /_matrix/client/unstable/org.matrix.msc2965/auth_metadata {
+    proxy_pass http://UNRAID-IP:8008/_matrix/client/v1/auth_metadata;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+The stuck app gets a new token within a few seconds, and nobody has to log in again.
+
 ### Turning it back off
 
 Setting `Delegated Auth` back to `false` returns Synapse to handling its own logins. **If you already
