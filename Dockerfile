@@ -96,8 +96,12 @@ RUN pip install --no-cache-dir --break-system-packages synapse-s3-storage-provid
 ARG AUTHLIB_VERSION=1.9.2
 # renovate: datasource=pypi depName=joserfc
 ARG JOSERFC_VERSION=1.7.7
+# Synapse's lockfile holds pyasn1 at 0.6.4, and the advisories against it are
+# fixed in 0.6.5.
+# renovate: datasource=pypi depName=pyasn1
+ARG PYASN1_VERSION=0.6.5
 RUN pip install --no-cache-dir --break-system-packages --no-deps \
-        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}"
+        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}" "pyasn1==${PYASN1_VERSION}"
 
 # s6-overlay names its release files after the machine architecture, not TARGETARCH.
 RUN case "${TARGETARCH}" in \
