@@ -89,7 +89,7 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
-          newest=$(git ls-remote --tags --refs origin 'v*.*.*' | sed 's#.*refs/tags/##' | sort -V | tail -1)
+          newest=$(git ls-remote --tags --refs origin 'v*.*.*' | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           echo "this tag: ${GITHUB_REF_NAME}, newest: ${newest}"
           if [ "${newest}" = "${GITHUB_REF_NAME}" ]; then
             echo "is_newest=true" >> "$GITHUB_OUTPUT"
@@ -104,6 +104,9 @@ jobs:
           images: |
             ghcr.io/junkerderprovinz/matrix
             name=docker.io/${{ vars.DOCKERHUB_USERNAME }}/matrix,enable=${{ env.DOCKERHUB_READY == 'true' }}
+          # The action adds latest to every semver tag unless the flavor turns that off.
+          flavor: |
+            latest=false
           # {{is_default_branch}} would put latest on every push to main, and
           # metadata-action counts a tag cut from main as the default branch too.
           tags: |
