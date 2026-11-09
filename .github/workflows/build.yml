@@ -4,6 +4,9 @@
 #   * push to main  -> edge, main, sha-<short>
 #   * tag v*.*.*    -> <version>, <major>.<minor>, <major>, and latest when that
 #                      tag is the newest release
+#   * weekly cron and manual workflow_dispatch
+#                   -> the newest release rebuilt without the layer cache, under
+#                      its version tags and latest
 #
 # The image carries the repo's version, so every release is its own update.
 # Synapse and the other components are pinned in the Dockerfile, where Renovate
@@ -26,10 +29,15 @@ on:
       - 'rootfs/**'
       - '.github/workflows/build.yml'
 
+  # Weekly, to rebuild the newest release on fresh base images and packages.
+  schedule:
+    - cron: '0 7 * * 0'
+
 # Queued pushes would otherwise race, and the last run to finish, not the
-# newest commit, would own the tag.
+# newest commit, would own the tag. A rebuild of the newest release runs apart
+# from pushes, so neither cancels the other.
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'rebuild' || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -51,13 +59,36 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  # Rebuilds refresh the newest release, which is what people run, not the
+  # tip of main.
+  release:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.newest.outputs.tag }}
+    steps:
+      - name: Find the newest release
+        id: newest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          echo "rebuilding $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   build-and-push:
+    needs: release
+    if: ${{ !failure() && !cancelled() }}
     name: Build & Push
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
 
       - name: Log in to GHCR
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
@@ -109,14 +140,15 @@ jobs:
             latest=false
           # {{is_default_branch}} would put latest on every push to main, and
           # metadata-action counts a tag cut from main as the default branch too.
+          # A rebuild of the newest release moves latest along with its tags.
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=edge,enable=${{ github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && steps.newest.outputs.is_newest == 'true' }}
-            type=sha,format=short
+            type=ref,event=branch,enable=${{ needs.release.outputs.tag == '' }}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag }}
+            type=raw,value=edge,enable=${{ github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch && needs.release.outputs.tag == '' }}
+            type=raw,value=latest,enable=${{ (github.ref_type == 'tag' && steps.newest.outputs.is_newest == 'true') || needs.release.outputs.tag != '' }}
+            type=sha,format=short,enable=${{ needs.release.outputs.tag == '' }}
           labels: |
             org.opencontainers.image.title=Matrix All-in-One
             org.opencontainers.image.description=Synapse + coturn + Element Web + Ketesa admin UI
@@ -137,6 +169,7 @@ jobs:
           load: true
           tags: matrix:smoke-amd64
           cache-from: type=gha
+          no-cache: ${{ needs.release.outputs.tag != '' }}
 
       - name: 'Smoke test: amd64 must boot and serve /health'
         run: |
@@ -462,6 +495,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache: ${{ needs.release.outputs.tag != '' }}
 
       # The description sync uses the push token too: an access token with read,
       # write and delete scope may edit it, while Docker Hub refuses the account
