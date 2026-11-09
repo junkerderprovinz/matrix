@@ -68,6 +68,7 @@ jobs:
       contents: read
     outputs:
       tag: ${{ steps.newest.outputs.tag }}
+      sha: ${{ steps.newest.outputs.sha }}
     steps:
       - name: Find the newest release
         id: newest
@@ -77,6 +78,7 @@ jobs:
           tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
           echo "rebuilding $tag"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)" >> "$GITHUB_OUTPUT"
 
   build-and-push:
     needs: release
@@ -153,6 +155,7 @@ jobs:
             org.opencontainers.image.title=Matrix All-in-One
             org.opencontainers.image.description=Synapse + coturn + Element Web + Ketesa admin UI
             org.opencontainers.image.licenses=AGPL-3.0-only
+            ${{ needs.release.outputs.tag != '' && format('org.opencontainers.image.revision={0}', needs.release.outputs.sha) || '' }}
 
       # Smoke gate: boot the amd64 image against a throwaway PostgreSQL and require
       # /health before anything is pushed, so a boot crash never reaches :latest.
