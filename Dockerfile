@@ -93,7 +93,7 @@ RUN pip install --no-cache-dir --break-system-packages synapse-s3-storage-provid
 # The pin can go once a Synapse release carries 1.9.1 or later. authlib 1.9 adds
 # joserfc as a dependency; --no-deps keeps pip away from the rest of Synapse's.
 # renovate: datasource=pypi depName=authlib
-ARG AUTHLIB_VERSION=1.9.5
+ARG AUTHLIB_VERSION=1.9.9
 # renovate: datasource=pypi depName=joserfc
 ARG JOSERFC_VERSION=1.8.0
 # Synapse's lockfile holds pyasn1 at 0.6.4, and the advisories against it are
