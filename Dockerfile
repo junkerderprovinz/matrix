@@ -108,8 +108,15 @@ ARG JOSERFC_VERSION=1.8.0
 # fixed in 0.6.5.
 # renovate: datasource=pypi depName=pyasn1
 ARG PYASN1_VERSION=0.6.5
+# The Synapse image carries soupsieve 2.10 and tornado 6.5.9, both with open
+# advisories.
+# renovate: datasource=pypi depName=soupsieve
+ARG SOUPSIEVE_VERSION=4.1.1
+# renovate: datasource=pypi depName=tornado
+ARG TORNADO_VERSION=6.6.1
 RUN pip install --no-cache-dir --break-system-packages --no-deps \
-        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}" "pyasn1==${PYASN1_VERSION}"
+        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}" "pyasn1==${PYASN1_VERSION}" \
+        "soupsieve==${SOUPSIEVE_VERSION}" "tornado==${TORNADO_VERSION}"
 
 # s6-overlay names its release files after the machine architecture, not TARGETARCH.
 RUN case "${TARGETARCH}" in \
