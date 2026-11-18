@@ -67,8 +67,13 @@ USER root
 # hadolint ignore=DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# gettext-base provides envsubst for the config templates.
+# gettext-base provides envsubst for the config templates. The upgrade takes the
+# Debian security fixes published since upstream built the Synapse image.
+# Synapse unpacks its runtime libraries without dpkg and describes each one in
+# status.d. Once apt installs or upgrades such a library, its status.d record
+# still names the old version and scanners report that one, so it goes.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         coturn \
         lighttpd \
@@ -79,6 +84,9 @@ RUN apt-get update \
         tzdata \
         xz-utils \
         jq \
+    && for record in /var/lib/dpkg/status.d/*; do \
+           if dpkg-query -W "${record##*/}" >/dev/null 2>&1; then rm "$record"; fi; \
+       done \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=gosu /gosu /usr/local/bin/gosu
