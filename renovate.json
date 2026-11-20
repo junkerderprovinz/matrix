@@ -69,22 +69,6 @@
       "pinDigests": false
     },
     {
-      "description": "Docker: auto-merge digest pins and digest refreshes (same tag, new build). Major/minor stay open for review.",
-      "matchManagers": [
-        "dockerfile",
-        "docker-compose"
-      ],
-      "matchUpdateTypes": [
-        "pinDigest",
-        "digest"
-      ],
-      "automerge": true,
-      "commitMessagePrefix": "ci:",
-      "labels": [
-        "docker"
-      ]
-    },
-    {
       "description": "The compose file is for people to copy, so it follows the app's own latest tag instead of a digest that goes stale every build",
       "matchManagers": [
         "docker-compose"
