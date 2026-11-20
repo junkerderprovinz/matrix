@@ -9,10 +9,16 @@
 # The component versions live only here: Renovate bumps these lines, and a
 # build-arg in the workflow would override what it bumps. Each stage redeclares
 # the args it uses.
+# renovate: datasource=docker depName=ghcr.io/element-hq/synapse
 ARG SYNAPSE_VERSION=v1.165.0
+# renovate: datasource=docker depName=vectorim/element-web
 ARG ELEMENT_VERSION=v1.12.35
+# Ketesa follows the registry, as its GitHub tags do not all get an image.
+# renovate: datasource=docker depName=ghcr.io/etkecc/ketesa
 ARG SYNAPSE_ADMIN_VERSION=v1.5.2
+# renovate: datasource=docker depName=ghcr.io/element-hq/matrix-authentication-service
 ARG MAS_VERSION=1.29.0
+# renovate: datasource=github-releases depName=just-containers/s6-overlay
 ARG S6_OVERLAY_VERSION=3.2.0.2
 
 ARG ELEMENT_VERSION
