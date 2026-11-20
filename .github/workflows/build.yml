@@ -28,6 +28,15 @@ on:
       - '.dockerignore'
       - 'rootfs/**'
       - '.github/workflows/build.yml'
+  # A pull request builds and smoke-tests the image but pushes nothing.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'rootfs/**'
+      - '.github/workflows/build.yml'
 
   # Weekly, to rebuild the newest release on fresh base images and packages.
   schedule:
@@ -93,6 +102,7 @@ jobs:
           ref: ${{ needs.release.outputs.tag }}
 
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -102,7 +112,7 @@ jobs:
       # A failed Docker Hub login would take the GHCR push down with it, so the
       # mirror is skipped unless both the variable and the token are set.
       - name: Log in to Docker Hub
-        if: env.DOCKERHUB_READY == 'true'
+        if: env.DOCKERHUB_READY == 'true' && github.event_name != 'pull_request'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -479,12 +489,14 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy results to the Security tab
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy
 
       - name: Build and push
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
@@ -530,6 +542,7 @@ jobs:
           enable-url-completion: true
 
       - name: Build summary
+        if: github.event_name != 'pull_request'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
