@@ -183,6 +183,9 @@ jobs:
           tags: matrix:smoke-amd64
           cache-from: type=gha
           no-cache: ${{ needs.release.outputs.tag != '' }}
+          # A cached runtime stage would bring back the Debian packages of the
+          # build that wrote the cache, skipping the apt upgrade.
+          no-cache-filters: runtime
 
       - name: 'Smoke test: amd64 must boot and serve /health'
         run: |
@@ -511,6 +514,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           no-cache: ${{ needs.release.outputs.tag != '' }}
+          no-cache-filters: runtime
 
       # The description sync uses the push token too: an access token with read,
       # write and delete scope may edit it, while Docker Hub refuses the account

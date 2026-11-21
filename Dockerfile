@@ -43,12 +43,28 @@ FROM ghcr.io/etkecc/ketesa:${SYNAPSE_ADMIN_VERSION} AS synapse-admin
 ARG MAS_VERSION
 FROM ghcr.io/element-hq/matrix-authentication-service:${MAS_VERSION} AS mas
 
-# Debian's gosu is built with a Go whose os and os/exec flaws govulncheck finds
-# reachable in it; the upstream static build has none.
-FROM tianon/gosu:1.20@sha256:e2bba3ccdb5e9fe330a875caf827d0897c682a489b5d3cfea2b64cb55d10d2ad AS gosu
+# A Go binary carries the standard library it was built with, and both Debian's
+# gosu and the upstream release bring a Go 1.24 with open advisories, plus the
+# x/sys v0.1.0 gosu's go.mod asks for. So gosu is built here, with the Go
+# checksum database verifying its source and x/sys. It cross-compiles natively,
+# as Go under QEMU is slow and can hang.
+FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie@sha256:f18c3d73a184fb0582828510722e723b63a93f7188d11dd223d9be6f6880e65d AS gosu
+# renovate: datasource=github-tags depName=tianon/gosu
+ARG GOSU_VERSION=1.20
+# renovate: datasource=go depName=golang.org/x/sys
+ARG XSYS_VERSION=v0.50.0
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /src
+RUN go mod init gosu-build \
+    && go get "github.com/tianon/gosu@${GOSU_VERSION}" "golang.org/x/sys@${XSYS_VERSION}" \
+    && CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+       go build -trimpath -ldflags '-d -w' -o /gosu github.com/tianon/gosu
 
+# The workflow names this stage in no-cache-filters, so the apt upgrade below
+# runs on every build instead of coming back from the layer cache.
 ARG SYNAPSE_VERSION
-FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION}
+FROM ghcr.io/element-hq/synapse:${SYNAPSE_VERSION} AS runtime
 
 ARG SYNAPSE_VERSION
 ARG ELEMENT_VERSION
@@ -96,6 +112,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=gosu /gosu /usr/local/bin/gosu
+# Synapse's start.py runs /usr/sbin/gosu, the Debian copy its image brings, so
+# that path leads to ours and the record of the Debian package goes with it.
+RUN ln -sf /usr/local/bin/gosu /usr/sbin/gosu \
+    && rm -f /var/lib/dpkg/status.d/gosu
 
 # Optional S3 media storage (matrix-org/synapse-s3-storage-provider), unused unless
 # S3_MEDIA_ENABLED=true. The official image installs Synapse into the system
@@ -120,9 +140,20 @@ ARG PYASN1_VERSION=0.6.5
 ARG SOUPSIEVE_VERSION=4.1.3
 # renovate: datasource=pypi depName=tornado
 ARG TORNADO_VERSION=6.6.1
+# Synapse 1.165 locks Twisted at 26.4.0, whose advisories 26.10.0 fixes. Synapse
+# 1.166 locks 26.10.0, so the pin can go with that release.
+# renovate: datasource=pypi depName=twisted
+ARG TWISTED_VERSION=26.10.0
+# The image carries setuptools 83.0.0, which has an advisory fixed in 84.1.0.
+# renovate: datasource=pypi depName=setuptools
+ARG SETUPTOOLS_VERSION=84.2.1
+# pip 26.2.2 vendors urllib3 2.7.0 and msgpack 1.1.2, and 26.3 the fixed releases.
+# renovate: datasource=pypi depName=pip
+ARG PIP_VERSION=26.3
 RUN pip install --no-cache-dir --break-system-packages --no-deps \
         "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}" "pyasn1==${PYASN1_VERSION}" \
-        "soupsieve==${SOUPSIEVE_VERSION}" "tornado==${TORNADO_VERSION}"
+        "soupsieve==${SOUPSIEVE_VERSION}" "tornado==${TORNADO_VERSION}" \
+        "twisted==${TWISTED_VERSION}" "setuptools==${SETUPTOOLS_VERSION}" "pip==${PIP_VERSION}"
 
 # s6-overlay names its release files after the machine architecture, not TARGETARCH.
 RUN case "${TARGETARCH}" in \
