@@ -117,7 +117,7 @@ ARG PYASN1_VERSION=0.6.5
 # The Synapse image carries soupsieve 2.10 and tornado 6.5.9, both with open
 # advisories.
 # renovate: datasource=pypi depName=soupsieve
-ARG SOUPSIEVE_VERSION=4.1.1
+ARG SOUPSIEVE_VERSION=4.1.3
 # renovate: datasource=pypi depName=tornado
 ARG TORNADO_VERSION=6.6.1
 RUN pip install --no-cache-dir --break-system-packages --no-deps \
