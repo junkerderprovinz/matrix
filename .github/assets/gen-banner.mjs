@@ -9,8 +9,9 @@
  * thread uses; keep it.
  *
  * The wordmark is Arial Bold, the metric clone of matrix.org's Helvetica Neue Bold,
- * and the claim is Lato, fetched at run time. Both are rendered to paths so no font
- * file is committed. Glyph outlines are transformed by hand because opentype's
+ * and the claim is Bree Light, read as TTF from HOUSE_FONTS (default
+ * %LOCALAPPDATA%\halleluja-fonts). Both are rendered to paths so no font file is
+ * committed. Glyph outlines are transformed by hand because opentype's
  * getPath() sometimes emits NaN coordinates.
  *
  * Needs `npm i -g @resvg/resvg-js opentype.js`. Run: node .github/assets/gen-banner.mjs
@@ -46,20 +47,13 @@ let claimSize = 44; const gap = 70, lineGap = 8;
 const MAX_GROUP = W - 160;
 
 const nameFont = opentype.parse(loadLocal(NAME_FONT));
-const latoFile = join(tmpdir(), "Matrix-Lato-Regular.ttf");
-await ensureFont(latoFile, "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Regular.ttf");
-const claimFont = opentype.parse(readFileSync(latoFile));
+// The house typeface is licensed, so it is read from a local folder and never committed.
+const fonts = process.env.HOUSE_FONTS ?? join(process.env.LOCALAPPDATA ?? tmpdir(), "halleluja-fonts");
+const claimFont = opentype.parse(readFileSync(join(fonts, "bree-light.ttf")).buffer);
 
 function loadLocal(p) {
   if (!existsSync(p)) throw new Error(`font not found: ${p} (install Arial Bold to regenerate)`);
   return readFileSync(p);
-}
-async function ensureFont(file, url) {
-  if (!existsSync(file)) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`font fetch ${res.status}: ${url}`);
-    writeFileSync(file, Buffer.from(await res.arrayBuffer()));
-  }
 }
 
 function glyphRunWidth(font, text, size) {
