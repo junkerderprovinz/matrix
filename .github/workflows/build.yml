@@ -2,6 +2,8 @@
 # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are both set.
 #
 #   * push to main  -> edge, main, sha-<short>
+#   * push to another branch
+#                   -> built and smoke-tested, nothing pushed
 #   * tag v*.*.*    -> <version>, <major>.<minor>, <major>, and latest when that
 #                      tag is the newest release
 #   * weekly cron and manual workflow_dispatch
@@ -20,7 +22,8 @@ on:
   # Path filters apply to branch pushes only; a release tag always builds.
   push:
     branches:
-      - main
+      - '**'
+      - '!renovate/**'
     tags:
       - 'v*.*.*'
     paths:
@@ -94,6 +97,10 @@ jobs:
     if: ${{ !failure() && !cancelled() }}
     name: Build & Push
     runs-on: ubuntu-latest
+    env:
+      # Only main, release tags and rebuilds of the newest release publish.
+      # Other branches build and smoke-test.
+      PUBLISH: ${{ github.ref_type == 'tag' || github.ref_name == 'main' || needs.release.outputs.tag != '' }}
 
     steps:
       - name: Checkout repository
@@ -102,7 +109,7 @@ jobs:
           ref: ${{ needs.release.outputs.tag }}
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -112,7 +119,7 @@ jobs:
       # A failed Docker Hub login would take the GHCR push down with it, so the
       # mirror is skipped unless both the variable and the token are set.
       - name: Log in to Docker Hub
-        if: env.DOCKERHUB_READY == 'true' && github.event_name != 'pull_request'
+        if: env.DOCKERHUB_READY == 'true' && env.PUBLISH == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -499,7 +506,7 @@ jobs:
           category: trivy
 
       - name: Build and push
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
@@ -521,7 +528,7 @@ jobs:
       # password once 2FA is on.
       - name: Docker Hub description sync ready?
         id: dhdesc
-        if: ${{ vars.DOCKERHUB_USERNAME != '' && github.event_name != 'pull_request' }}
+        if: ${{ vars.DOCKERHUB_USERNAME != '' && env.PUBLISH == 'true' }}
         env:
           PW: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
@@ -546,7 +553,7 @@ jobs:
           enable-url-completion: true
 
       - name: Build summary
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
