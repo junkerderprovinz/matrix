@@ -11,6 +11,7 @@ BUTTONS = {
     "unraid": "https://ca.unraid.net/apps/matrix-0m1y9gx19lbqgt",
     "mos": "https://mos-official.net/apps.html?search=Matrix",
     "compose": "https://raw.githubusercontent.com/junkerderprovinz/matrix/main/compose.yaml",
+    "proxmox": "#proxmox-ve",
     # A release's "Source code (zip)" is the whole repository at that tag, and
     # GitHub gives the newest one no fixed address, so this leads to the release
     # that lists it.
