@@ -189,8 +189,11 @@ COPY rootfs/ /
 COPY .github/assets/banner-raw.txt /usr/local/share/banner-raw.txt
 RUN tr -d '\r' < /usr/local/share/banner-raw.txt > /usr/local/share/banner.txt
 
+# In /usr/local/bin only the files that lack the bit: a chmod on the others
+# would copy them into this layer, and mas-cli alone is 100 MB.
 RUN find /etc/cont-init.d /etc/services.d \( -name "run" -o -name "*.sh" \) -print0 \
-        | xargs -0 chmod +x
+        | xargs -0 chmod +x \
+    && find /usr/local/bin -type f ! -perm -u+x -exec chmod +x {} +
 
 # s6-overlay's default of 0 carries on after a failed cont-init script and starts
 # Synapse on a config known to be broken. Every exit 1 in cont-init.d is a

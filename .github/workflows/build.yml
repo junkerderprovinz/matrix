@@ -247,6 +247,18 @@ jobs:
                 cleanup; exit 1
               fi
               echo "✅ MAS is inert (no config, no listener) with AUTH_ENABLED unset"
+              # The ready box follows the banner, so once it is in the log the
+              # banner has had its turn.
+              for _ in $(seq 1 30); do
+                if grep -q 'MATRIX IS READY' <<< "$(docker logs mx-smoke 2>&1)"; then break; fi
+                sleep 2
+              done
+              if ! grep -qF '  Matrix · Synapse + Element + coturn' <<< "$(docker logs mx-smoke 2>&1)"; then
+                echo "❌ no banner before the ready box, logs:"
+                docker logs mx-smoke 2>&1 | tail -40 || true
+                cleanup; exit 1
+              fi
+              echo "✅ the banner is in the log"
               cleanup
               exit 0
             fi
