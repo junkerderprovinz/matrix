@@ -209,6 +209,8 @@ In Container Station, open **Applications** and click **Create**. Paste [compose
 
 In the Docker app of UGOS Pro, open **Project** and click **Create**. Pick a folder for Matrix and paste [compose.yaml](compose.yaml).
 
+On its first start the container takes over the folders under `volumes`. Set `PUID` and `PGID` to your own user's IDs so the files stay yours and you can still open them over the network. `id` over SSH shows them, and the first user on a Synology is usually 1026 in group 100.
+
 <sub>The Synology logo is a trademark of Synology Inc. and the QNAP logo a trademark of QNAP Systems, Inc., both registered in Taiwan and other regions.</sub>
 
 <br>
