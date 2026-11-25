@@ -2,11 +2,13 @@
 # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are both set.
 #
 #   * push to main  -> edge, main, sha-<short>
-#   * tag v*.*.*    -> <version>, <major>.<minor>, <major>, and latest when that
-#                      tag is the newest release
+#   * tag v*.*.*    -> <version>, <major>.<minor>, <major>, sha-<short>, and
+#                      latest when that tag is the newest release
 #   * weekly cron and manual workflow_dispatch
 #                   -> the newest release rebuilt without the layer cache, under
 #                      its version tags and latest
+#
+# os-updates.yml puts pending Debian updates on top of latest every Monday.
 #
 # The image carries the repo's version, so every release is its own update.
 # Synapse and the other components are pinned in the Dockerfile, where Renovate
