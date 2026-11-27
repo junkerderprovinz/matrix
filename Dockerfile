@@ -17,7 +17,7 @@ ARG ELEMENT_VERSION=v1.12.35
 # renovate: datasource=docker depName=ghcr.io/etkecc/ketesa
 ARG SYNAPSE_ADMIN_VERSION=v1.5.2
 # renovate: datasource=docker depName=ghcr.io/element-hq/matrix-authentication-service
-ARG MAS_VERSION=1.29.0
+ARG MAS_VERSION=1.30.0
 # renovate: datasource=github-releases depName=just-containers/s6-overlay versioning=loose
 ARG S6_OVERLAY_VERSION=3.2.3.2
 
