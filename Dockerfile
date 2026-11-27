@@ -12,7 +12,7 @@
 # renovate: datasource=docker depName=ghcr.io/element-hq/synapse
 ARG SYNAPSE_VERSION=v1.165.0
 # renovate: datasource=docker depName=vectorim/element-web
-ARG ELEMENT_VERSION=v1.12.35
+ARG ELEMENT_VERSION=v1.12.36
 # Ketesa follows the registry, as its GitHub tags do not all get an image.
 # renovate: datasource=docker depName=ghcr.io/etkecc/ketesa
 ARG SYNAPSE_ADMIN_VERSION=v1.5.2
