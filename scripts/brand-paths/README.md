@@ -13,17 +13,24 @@ the generator scale marks of different widths to one optical size.
 Fonticons, Inc.
 
 **Dashboard Icons** (`homarr-labs/dashboard-icons`, <https://dashboardicons.com>):
-Unraid, its `unraid.svg` with the gradient left out, since the button draws it
-in one ink. **Apache-2.0**, whose licence text is beside this file as
-`LICENSE-dashboard-icons.txt`. Copyright the Homarr Labs team and contributors.
+Unraid and UGREEN, Unraid's `unraid.svg` with the gradient left out, since the
+button draws it in one ink. **Apache-2.0**, whose licence text is beside this
+file as `LICENSE-dashboard-icons.txt`. Copyright the Homarr Labs team and
+contributors.
+
+**Simple Icons** (<https://simpleicons.org>): Proxmox, Synology and QNAP.
+**CC0 1.0** for the path data.
+
+MOS's mark is the `mos.svg` in mos-nas/mos-releases.
 
 ## Trademarks
 
 Every platform mark here is a trademark of its owner. They are used the one way a
 trademark may be used without permission, which is to refer to the thing they
 name: each sits on a button for that platform, unmodified, and nothing here
-claims endorsement by or affiliation with Docker or Lime Technology. The ZIP is
-no one's mark; it stands for the source archive.
+claims endorsement by or affiliation with Docker, Lime Technology, MOS,
+Proxmox, Synology, QNAP or UGREEN. The ZIP is no one's mark. It stands for the
+source archive.
 
 ## Adding one
 
