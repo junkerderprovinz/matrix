@@ -52,22 +52,15 @@ Enter your domain and database credentials and the container handles the rest.
   <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sections/group-server-dark.svg"><img src=".github/assets/sections/group-server.svg" alt="Server" width="100%"></picture>
 </p>
 <p align="center">
-  <a href="https://ca.unraid.net/apps/matrix-0m1y9gx19lbqgt"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(0,0,841.9,245.3))" alt="Install from Unraid&#x27;s Community Applications" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="https://mos-official.net/apps.html?search=Matrix"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(866,0,841.9,245.3))" alt="Install from the MOS Hub" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="#proxmox-ve"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(1732,0,841.9,245.3))" alt="Run it on Proxmox VE" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="#synology"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(2598,0,841.9,245.3))" alt="Run it on a Synology NAS" width="160" height="46.618"></a>
-</p>
-<p align="center">
-  <a href="#qnap"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(3464,0,841.9,245.3))" alt="Run it on a QNAP NAS" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="#ugreen"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(4330,0,841.9,245.3))" alt="Run it on a UGREEN NAS" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/compose.yaml"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(5196,0,841.9,245.3))" alt="Download the docker-compose file" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="https://github.com/junkerderprovinz/matrix/releases/latest"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(6062,0,841.9,245.3))" alt="Download the source archive" width="160" height="46.618"></a>
+  &nbsp;<a href="https://ca.unraid.net/apps/matrix-0m1y9gx19lbqgt"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(0,-20.153,841.9,285.606))" alt="Install from Unraid&#x27;s Community Applications" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="https://mos-official.net/apps.html?search=Matrix"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(866,-20.153,841.9,285.606))" alt="Install from the MOS Hub" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="#proxmox-ve"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(1732,-20.153,841.9,285.606))" alt="Run it on Proxmox VE" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="#synology"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(2598,-20.153,841.9,285.606))" alt="Run it on a Synology NAS" width="160" height="54.278"></a>&nbsp;
+  <br>
+  &nbsp;<a href="#qnap"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(3464,-20.153,841.9,285.606))" alt="Run it on a QNAP NAS" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="#ugreen"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(4330,-20.153,841.9,285.606))" alt="Run it on a UGREEN NAS" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/compose.yaml"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(5196,-20.153,841.9,285.606))" alt="Download the docker-compose file" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="https://github.com/junkerderprovinz/matrix/releases/latest"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(6062,-20.153,841.9,285.606))" alt="Download the source archive" width="160" height="54.278"></a>&nbsp;
 </p>
 <!-- /download-buttons -->
 
@@ -85,11 +78,9 @@ If it has earned a place on your server or computer, toss a coin to your knight:
 
 <!-- give-buttons: written by scripts/gen_download_buttons.py -->
 <p align="center">
-  <a href="https://buymeacoffee.com/junkerderprovinz"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(6928,0,841.9,245.3))" alt="Buy me a coffee" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="https://www.paypal.com/donate/?hosted_button_id=76FVV52TKXTUS"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(7794,0,841.9,245.3))" alt="PayPal" width="160" height="46.618"></a>
-  &nbsp;
-  <a href="https://junkerderprovinz.github.io/junkerderprovinz/"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(8660,0,841.9,245.3))" alt="Donate with crypto" width="160" height="46.618"></a>
+  &nbsp;<a href="https://buymeacoffee.com/junkerderprovinz"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(6928,-20.153,841.9,285.606))" alt="Buy me a coffee" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="https://www.paypal.com/donate/?hosted_button_id=76FVV52TKXTUS"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(7794,-20.153,841.9,285.606))" alt="PayPal" width="160" height="54.278"></a>&nbsp;
+  &nbsp;<a href="https://junkerderprovinz.github.io/junkerderprovinz/"><img src="https://raw.githubusercontent.com/junkerderprovinz/matrix/main/.github/assets/download-buttons/buttons.svg?v=92b4de7e5e45#svgView(viewBox(8660,-20.153,841.9,285.606))" alt="Donate with crypto" width="160" height="54.278"></a>&nbsp;
 </p>
 <!-- /give-buttons -->
 
