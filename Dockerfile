@@ -10,7 +10,7 @@
 # build-arg in the workflow would override what it bumps. Each stage redeclares
 # the args it uses.
 # renovate: datasource=docker depName=ghcr.io/element-hq/synapse
-ARG SYNAPSE_VERSION=v1.165.0
+ARG SYNAPSE_VERSION=v1.166.0
 # renovate: datasource=docker depName=vectorim/element-web
 ARG ELEMENT_VERSION=v1.12.35
 # Ketesa follows the registry, as its GitHub tags do not all get an image.
