@@ -123,37 +123,22 @@ RUN ln -sf /usr/local/bin/gosu /usr/sbin/gosu \
 # with no PYTHONPATH wiring. It mainly adds boto3 and its dependencies.
 RUN pip install --no-cache-dir --break-system-packages synapse-s3-storage-provider==1.6.1
 
-# Synapse 1.164 ships authlib 1.6.12, which has open advisories fixed in 1.9.
-# The pin can go once a Synapse release carries 1.9.1 or later. authlib 1.9 adds
-# joserfc as a dependency; --no-deps keeps pip away from the rest of Synapse's.
-# renovate: datasource=pypi depName=authlib
-ARG AUTHLIB_VERSION=1.9.10
-# renovate: datasource=pypi depName=joserfc
-ARG JOSERFC_VERSION=1.8.0
-# Synapse's lockfile holds pyasn1 at 0.6.4, and the advisories against it are
-# fixed in 0.6.5.
-# renovate: datasource=pypi depName=pyasn1
-ARG PYASN1_VERSION=0.6.5
-# The Synapse image carries soupsieve 2.10 and tornado 6.5.9, both with open
+# The Synapse image carries soupsieve 2.10 and tornado 6.6, both with open
 # advisories.
 # renovate: datasource=pypi depName=soupsieve
 ARG SOUPSIEVE_VERSION=4.1.3
 # renovate: datasource=pypi depName=tornado
 ARG TORNADO_VERSION=6.6.1
-# Synapse 1.165 locks Twisted at 26.4.0, whose advisories 26.10.0 fixes. Synapse
-# 1.166 locks 26.10.0, so the pin can go with that release.
-# renovate: datasource=pypi depName=twisted
-ARG TWISTED_VERSION=26.10.0
 # The image carries setuptools 83.0.0, which has an advisory fixed in 84.1.0.
 # renovate: datasource=pypi depName=setuptools
 ARG SETUPTOOLS_VERSION=84.2.1
 # pip 26.2.2 vendors urllib3 2.7.0 and msgpack 1.1.2, and 26.3 the fixed releases.
 # renovate: datasource=pypi depName=pip
 ARG PIP_VERSION=26.3
+# --no-deps keeps pip away from the rest of Synapse's dependencies.
 RUN pip install --no-cache-dir --break-system-packages --no-deps \
-        "authlib==${AUTHLIB_VERSION}" "joserfc==${JOSERFC_VERSION}" "pyasn1==${PYASN1_VERSION}" \
         "soupsieve==${SOUPSIEVE_VERSION}" "tornado==${TORNADO_VERSION}" \
-        "twisted==${TWISTED_VERSION}" "setuptools==${SETUPTOOLS_VERSION}" "pip==${PIP_VERSION}"
+        "setuptools==${SETUPTOOLS_VERSION}" "pip==${PIP_VERSION}"
 
 # s6-overlay names its release files after the machine architecture, not TARGETARCH.
 RUN case "${TARGETARCH}" in \
