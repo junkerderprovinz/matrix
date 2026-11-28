@@ -288,12 +288,20 @@ Google Chat, and more. Run each bridge as its own Docker container alongside thi
 1. Run the bridge container once to generate its `config.yaml`
 2. Edit `config.yaml` to point at your Synapse homeserver URL and PostgreSQL database
 3. Run the bridge with `--generate-registration` to produce a `registration.yaml` file
-4. Copy `registration.yaml` into `/data/appservices/` inside the Matrix container
-5. Restart the Matrix container. Synapse then loads all `.yaml` files from
-   `/data/appservices/` at startup
+4. Copy `registration.yaml` into the Matrix container's data folder, for example as
+   `/mnt/user/appdata/matrix/appservices/discord.yaml` on your Unraid host
+5. List it under `app_service_config_files` in `homeserver-custom.yaml` (see
+   [Custom Synapse Settings](#custom-synapse-settings)), with its path inside the container:
 
-The `/data/appservices/` directory on your Unraid host maps to
-`/mnt/user/appdata/matrix/appservices/`. Create it manually if it does not yet exist.
+   ```yaml
+   app_service_config_files:
+     - /data/appservices/discord.yaml
+   ```
+
+6. Restart the Matrix container
+
+Synapse loads only the registrations named in `app_service_config_files`. A file dropped into a folder
+without that entry is never read.
 
 ### Bridge documentation
 
